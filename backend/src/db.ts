@@ -111,14 +111,6 @@ function isPrismaTransactionFailure(error: unknown) {
   return (error as { code?: unknown }).code === 'P2028'
 }
 
-export function acquireUserRoleMutationLock(
-  prisma: Pick<DbClient, '$executeRaw'>,
-) {
-  return prisma.$executeRaw(
-    Prisma.sql`SELECT pg_advisory_xact_lock(hashtextextended('user-role-mutations', 0))`,
-  )
-}
-
 export function acquireUserAuthenticationAuthorityLock(
   prisma: Pick<DbClient, '$executeRaw'>,
   userId: string,

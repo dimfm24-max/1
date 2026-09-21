@@ -47,7 +47,6 @@ const validUser = {
   id: 'user-1',
   email: 'Ada@Example.com',
   displayName: null,
-  role: 'admin',
   createdAt: '2026-01-01T00:00:00.000Z',
 }
 
@@ -127,33 +126,9 @@ function schemaCases(contracts: Contracts): SchemaCase[] {
       ],
     },
     {
-      name: 'adminUsersQuerySchema',
-      schema: contracts.adminUsersQuerySchema,
-      inputs: [
-        {},
-        { q: '  ', page: '3', pageSize: '50' },
-        { q: ' ada ', page: 2 },
-        { page: '0' },
-        { page: 'abc' },
-        { pageSize: '101' },
-        { q: 'q'.repeat(101) },
-        { sort: 'email' },
-      ],
-    },
-    {
-      name: 'adminUserParamsSchema',
-      schema: contracts.adminUserParamsSchema,
-      inputs: [{ userId: validUpload.uploadId }, { userId: '42' }, { userId: validUpload.uploadId, more: 1 }],
-    },
-    {
       name: 'avatarUploadParamsSchema',
       schema: contracts.avatarUploadParamsSchema,
       inputs: [{ uploadId: validUpload.uploadId }, { uploadId: 'latest' }, {}],
-    },
-    {
-      name: 'updateUserRoleRequestSchema',
-      schema: contracts.updateUserRoleRequestSchema,
-      inputs: [{ role: 'user' }, { role: 'root' }, { role: 'admin', force: true }],
     },
     {
       name: 'createAvatarUploadRequestSchema',

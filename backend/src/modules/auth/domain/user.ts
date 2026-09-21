@@ -1,11 +1,10 @@
-import type { UserDto, UserRole } from '@vibe/contracts'
+import type { UserDto } from '@vibe/contracts'
 
 export type AuthUserRecord = {
   id: string
   email: string
   passwordHash: string | null
   displayName: string | null
-  role: UserRole
   createdAt: Date
 }
 
@@ -18,7 +17,6 @@ export function toUserDto(user: AuthUserRecord): UserDto {
     id: user.id,
     email: user.email,
     displayName: user.displayName,
-    role: user.role,
     createdAt: user.createdAt.toISOString(),
   }
 }

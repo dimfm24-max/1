@@ -21,7 +21,7 @@ import {
   hashRefreshTokenFamily,
 } from './infrastructure/refresh-tokens'
 import { verifySocialIdentity } from './infrastructure/social-providers'
-import { createRequireAuth, createRequireRole, type AuthHttpEnv } from './transport/middleware'
+import { createRequireAuth, type AuthHttpEnv } from './transport/middleware'
 import { createAuthRoutes } from './transport/routes'
 import { executeAuth } from './transport/errors'
 
@@ -53,7 +53,6 @@ export function createAuthModule({
     authenticateAccessToken: (accessToken: string | undefined) =>
       executeAuth(() => service.authenticateAccessToken(accessToken)),
     requireAuth,
-    requireAdmin: createRequireRole('admin'),
     routes: createAuthRoutes({ env, requireAuth, service }),
   }
 }

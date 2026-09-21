@@ -1,7 +1,5 @@
-import type { UserRole } from '@vibe/contracts'
 import { createMiddleware } from 'hono/factory'
 
-import { AppError } from '../../../http/errors'
 import type { AuthenticatedPrincipal } from '../domain/user'
 import { executeAuth } from './errors'
 
@@ -18,15 +16,6 @@ export function createRequireAuth(
     const accessToken = bearerToken(c.req.header('authorization'))
     const user = await executeAuth(() => authenticate(accessToken))
     c.set('user', user)
-    await next()
-  })
-}
-
-export function createRequireRole(role: UserRole) {
-  return createMiddleware<AuthHttpEnv>(async (c, next) => {
-    if (c.var.user.role !== role) {
-      throw new AppError(403, 'FORBIDDEN', 'You do not have permission to access this resource')
-    }
     await next()
   })
 }

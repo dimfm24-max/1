@@ -5,10 +5,8 @@ import {
   userAuthorityTransitionTransactionOptions,
 } from '../../../db'
 import { Prisma } from '../../../generated/prisma/client'
-import { bootstrapAdmin } from './admin-bootstrap'
 
 export type DevelopmentSeedAccounts = {
-  admin: DevelopmentSeedCredentials
   user: DevelopmentSeedCredentials
 }
 
@@ -21,12 +19,10 @@ export async function bootstrapDevelopmentAccounts(
   db: DbClient,
   accounts: DevelopmentSeedAccounts,
 ) {
-  const admin = await bootstrapAdmin(db, accounts.admin)
   const user = await bootstrapDevelopmentUser(db, accounts.user)
 
   return {
-    admin: { email: admin.email, role: 'admin' as const },
-    user: { email: user.email, id: user.id, role: 'user' as const },
+    user: { email: user.email, id: user.id },
   }
 }
 
@@ -37,7 +33,7 @@ async function bootstrapDevelopmentUser(
   for (;;) {
     const existing = await db.user.findUnique({
       where: { email: credentials.email },
-      select: { id: true, passwordHash: true, role: true },
+      select: { id: true, passwordHash: true },
     })
     if (existing) {
       return updateExistingDevelopmentUser(db, existing, credentials)
@@ -49,7 +45,6 @@ async function bootstrapDevelopmentUser(
           displayName: 'Development User',
           email: credentials.email,
           passwordHash: await Bun.password.hash(credentials.password, { algorithm: 'argon2id' }),
-          role: 'user',
         },
         select: { email: true, id: true },
       })
@@ -62,12 +57,9 @@ async function bootstrapDevelopmentUser(
 
 async function updateExistingDevelopmentUser(
   db: DbClient,
-  existing: { id: string; passwordHash: string | null; role: string },
+  existing: { id: string; passwordHash: string | null },
   credentials: DevelopmentSeedAccounts['user'],
 ) {
-  if (existing.role !== 'user') {
-    throw new Error(`Development user email ${credentials.email} belongs to an administrator`)
-  }
   if (
     existing.passwordHash !== null &&
     await matchesPassword(credentials.password, existing.passwordHash)
@@ -83,11 +75,8 @@ async function updateExistingDevelopmentUser(
     await acquireUserAuthenticationAuthorityLock(tx, existing.id)
     const current = await tx.user.findUniqueOrThrow({
       where: { id: existing.id },
-      select: { passwordHash: true, role: true },
+      select: { passwordHash: true },
     })
-    if (current.role !== 'user') {
-      throw new Error(`Development user email ${credentials.email} belongs to an administrator`)
-    }
     if (
       current.passwordHash !== null &&
       await matchesPassword(credentials.password, current.passwordHash)

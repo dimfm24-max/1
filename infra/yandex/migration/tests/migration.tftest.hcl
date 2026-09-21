@@ -35,23 +35,3 @@ run "isolated_migration_revision" {
     error_message = "The one-shot migration must never run as the API runtime identity."
   }
 }
-
-run "one_time_seed_is_scoped" {
-  command = plan
-
-  variables {
-    admin_seed_email    = "owner@example.com"
-    admin_seed_password = "one-time-password"
-  }
-
-  assert {
-    condition     = length(yandex_lockbox_secret.admin_seed) == 1 && length(yandex_lockbox_secret_iam_member.admin_seed) == 1
-    error_message = "Administrator bootstrap must use one migration-only Lockbox secret and exact migration grant."
-  }
-
-
-  assert {
-    condition     = one(yandex_lockbox_secret_iam_member.admin_seed).member == "serviceAccount:${var.migration_service_account}"
-    error_message = "The one-time administrator seed must be visible only to the migration identity."
-  }
-}

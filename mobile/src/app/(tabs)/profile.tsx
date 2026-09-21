@@ -33,7 +33,6 @@ export default function ProfileScreen() {
       <AccountSummary
         avatarImage={avatarImage}
         avatarTestID={TEST_IDS.profile.avatarPreview}
-        badge={auth.user.role === 'admin' ? 'Admin' : 'User'}
         description={`Member since ${formatAccountDate(auth.user.createdAt)}`}
         displayName={auth.user.displayName}
         email={auth.user.email}

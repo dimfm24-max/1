@@ -57,7 +57,7 @@ Define resource sizes and composition in Terraform. Document operating changes i
 ## Choose between `webapp` and `website`
 
 - `website`: public pages, SEO, link previews, and catalog. Use Astro SSG by default. Use SSR or hybrid rendering when needed.
-- `webapp`: screens after sign-in, user accounts, administration, and checkout without SEO.
+- `webapp`: screens after sign-in, user accounts, and checkout without SEO.
 
 A marketplace usually needs both. Do not move SEO into CSR or the entire account area into Astro. See [ARCHITECTURE.md](docs/ARCHITECTURE.md#клиенты) for framework selection.
 
@@ -87,14 +87,13 @@ bun run dev:seed
 
 In PowerShell, use `Copy-Item backend/.env.example backend/.env` instead of `cp`. If Docker fails, follow the [instructions for your operating system](docs/LOCAL_DATABASE.md#если-docker-недоступен). Run PostgreSQL through Compose, not a native installation.
 
-The seed uses `DEV_SEED_ADMIN_*` and `DEV_SEED_USER_*` from `backend/.env`. These demo credentials are public and must not be used in production:
+The seed uses `DEV_SEED_USER_*` from `backend/.env`. These demo credentials are public and must not be used in production:
 
-| Role | Email | Password | Page |
-| --- | --- | --- | --- |
-| Administrator | `admin@example.com` | `local-admin-password` | `/admin` |
-| User | `user@example.com` | `local-user-password` | `/app` |
+| Email | Password | Page |
+| --- | --- | --- |
+| `user@example.com` | `local-user-password` | `/app` |
 
-The seed is safe to repeat. It permits only loopback databases and rejects `NODE_ENV=production`. Mobile has no admin interface. Deployment uses `db:deploy` with `ADMIN_SEED_*`, not the local seed.
+The seed is safe to repeat. It permits only loopback databases and rejects `NODE_ENV=production`. Deployment uses `db:deploy`, not the local seed.
 
 Start the required applications in separate terminals:
 

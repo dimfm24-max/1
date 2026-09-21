@@ -24,20 +24,3 @@ variable "migration_image_digest" {
     error_message = "migration_image_digest must be an immutable sha256 digest."
   }
 }
-variable "admin_seed_email" {
-  type      = string
-  default   = null
-  nullable  = true
-  sensitive = true
-
-  validation {
-    condition     = (var.admin_seed_email == null) == (var.admin_seed_password == null)
-    error_message = "admin_seed_email and admin_seed_password must be supplied together or both omitted."
-  }
-}
-variable "admin_seed_password" {
-  type      = string
-  default   = null
-  nullable  = true
-  sensitive = true
-}

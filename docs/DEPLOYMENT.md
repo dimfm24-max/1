@@ -132,21 +132,12 @@ unset TF_STATE_RECOVERY_ACCESS_KEY_ID TF_STATE_RECOVERY_SECRET_ACCESS_KEY
 bun run infra:plan -- <digitalocean|yandex>
 ```
 
-Для первого релиза передай администратора только через окружение процесса:
+Выполнить релиз:
 
 ```bash
-export ADMIN_SEED_EMAIL='owner@example.com'
-export ADMIN_SEED_PASSWORD='<random one-time password>'
 bun run release -- <digitalocean|yandex> --dry-run
 bun run release -- <digitalocean|yandex>
-unset ADMIN_SEED_EMAIL ADMIN_SEED_PASSWORD
 ```
-
-Скрипт временно пишет seed во входной файл миграции с правами `0600`, затем удаляет его. Yandex создаёт и удаляет отдельный Lockbox-секрет миграции. DigitalOcean убирает переменные PRE_DEPLOY вторым идемпотентным деплоем API.
-
-Для следующих релизов не передавай seed. `db:deploy` проверит наличие администратора с паролем. После прерванного Yandex-релиза следующий запуск удалит три известных seed-ресурса до миграции без старого пароля.
-
-После первого входа сразу смени пароль. Удаление из активного runtime не стирает его из истории деплоев, Lockbox или версий Terraform state.
 
 Перед реальным релизом скрипт читает ветку и GitHub-репозиторий DigitalOcean из применённого state основы, получает upstream и запрещает:
 

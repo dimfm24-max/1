@@ -73,7 +73,7 @@ bun run --cwd backend test:live  # checks configured external services
 
 The provider test uses the real `react-dom/client`, React `act`, and small test doubles for the root container and `window`. The repository has no jsdom or happy-dom. Extend the existing test doubles. Do not add a DOM library. Check components that produce HTML, such as profile form validation, with `react-dom/server` and `renderToStaticMarkup`. The `mobile` branch extends the same model for Expo.
 
-Backend tests are next to their modules. Integration checks authentication, users/admin RBAC, and notifications through the application and transport with real PostgreSQL. Coverage includes session rotation, permissions, profiles, the last administrator, concurrent role demotions, session revocation, seed idempotency, ownership, outbox retries, receipts, and error formats.
+Backend tests are next to their modules. Integration checks authentication, profiles, and notifications through the application and transport with real PostgreSQL. Coverage includes session rotation, permissions, profiles, session revocation, seed idempotency, ownership, outbox retries, receipts, and error formats.
 
 Each managed run creates a separate `${COMPOSE_PROJECT_NAME}-integration-<run>`. It starts `postgres_test`, waits for readiness, applies migrations, and runs the selected files. Without a filter, it runs all discovered integration tests.
 
@@ -127,7 +127,7 @@ The E2E script:
 
 - Runs `docker compose up -d postgres_test` unless `E2E_SKIP_DOCKER=1` is set.
 - Selects ports based on the repository. If occupied, it selects the nearest free ports.
-- Generates Prisma, applies migrations, and creates an E2E administrator. The administrator's password does not enter the browser build.
+- Generates Prisma, applies migrations, and seeds the E2E account. Its password does not enter the browser build.
 - Passes `TEST_DATABASE_URL` to the backend as `DATABASE_URL`.
 - Starts the backend on `E2E_BACKEND_PORT` and Vite on `E2E_WEB_PORT`.
 - Removes only `postgres_test` and its volume after the run unless `E2E_KEEP_DOCKER=1` is set.
@@ -140,7 +140,7 @@ The avatar scenario uses filesystem storage by default, with no extra container.
 bun run e2e:webapp:s3
 ```
 
-Use this check for storage changes or an explicit storage audit. It does not repeat the other authentication and RBAC scenarios. Extra arguments can set Playwright options, but the test file remains `avatar.spec.ts`.
+Use this check for storage changes or an explicit storage audit. It does not repeat the other authentication scenarios. Extra arguments can set Playwright options, but the test file remains `avatar.spec.ts`.
 
 Variables:
 

@@ -1,9 +1,8 @@
 export {
-  homePathForRole,
-  navigationItemsForRole,
-  resolveRoleDestination,
+  homePath,
+  resolveDestination,
   safeReturnPath,
-  type AdminRoutePath,
-  type UserRoutePath,
+  workspaceNavigationItems,
+  workspaceRoutes,
   type WorkspaceRoutePath,
 } from './model'

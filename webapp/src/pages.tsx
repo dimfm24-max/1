@@ -1,5 +1,5 @@
 import { Outlet, useLocation, useRouter, useSearch } from '@tanstack/react-router'
-import type { UserDto, UserRole } from '@vibe/contracts'
+import type { UserDto } from '@vibe/contracts'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 
 import {
@@ -8,7 +8,6 @@ import {
   SessionLoadingSection,
 } from '@/components/WebRouteSections'
 import { WorkspaceShell } from '@/components/WorkspaceShell'
-import { AdminDashboard, AdminSettings, AdminUsers } from '@/features/admin'
 import {
   AuthPageShell,
   clearPasswordResetTokenHash,
@@ -19,7 +18,7 @@ import {
   ResetPasswordForm,
   useAuth,
 } from '@/features/auth'
-import { homePathForRole, safeReturnPath } from '@/features/navigation'
+import { homePath, safeReturnPath } from '@/features/navigation'
 import { UserHome, UserProfile, UserSettings } from '@/features/users'
 
 export function HomePage() {
@@ -33,7 +32,7 @@ export function HomePage() {
   if (auth.user) {
     return (
       <HrefRedirect
-        href={safeReturnPath(auth.user.role, returnTo) ?? homePathForRole(auth.user.role)}
+        href={safeReturnPath(returnTo) ?? homePath}
       />
     )
   }
@@ -88,12 +87,12 @@ export function ResetPasswordPage() {
 }
 
 export function UserHomePage() {
-  const user = useWorkspaceUser('user')
+  const user = useWorkspaceUser()
   return <UserHome user={user} />
 }
 
 export function UserProfilePage() {
-  const user = useWorkspaceUser('user')
+  const user = useWorkspaceUser()
   return <UserProfile user={user} />
 }
 
@@ -102,26 +101,8 @@ export function UserSettingsPage() {
   return <UserSettings onLogout={auth.logout} />
 }
 
-export function AdminDashboardPage() {
-  return <AdminDashboard />
-}
-
-export function AdminUsersPage() {
-  const user = useWorkspaceUser('admin')
-  return <AdminUsers currentUser={user} />
-}
-
-export function AdminSettingsPage() {
-  const user = useWorkspaceUser('admin')
-  return <AdminSettings user={user} />
-}
-
 export function UserWorkspaceLayout() {
-  return <WorkspaceRoute role="user" />
-}
-
-export function AdminWorkspaceLayout() {
-  return <WorkspaceRoute role="admin" />
+  return <WorkspaceRoute />
 }
 
 export function NotFoundPage() {
@@ -132,11 +113,11 @@ export function NotFoundPage() {
     return <SessionErrorSection retry={auth.retrySession} />
   }
 
-  const destination = auth.user ? homePathForRole(auth.user.role) : '/login'
+  const destination = auth.user ? homePath : '/login'
   return <NotFoundSection destination={destination} />
 }
 
-function WorkspaceRoute({ role }: { role: UserRole }) {
+function WorkspaceRoute() {
   const auth = useAuth()
   const location = useLocation()
 
@@ -148,10 +129,6 @@ function WorkspaceRoute({ role }: { role: UserRole }) {
     const returnTo = `${location.pathname}${location.searchStr}`
     return <HrefRedirect href={`/login?returnTo=${encodeURIComponent(returnTo)}`} />
   }
-  if (auth.user.role !== role) {
-    return <HrefRedirect href={homePathForRole(auth.user.role)} />
-  }
-
   return (
     <WorkspaceShell onLogout={auth.logout} user={auth.user}>
       <Outlet />
@@ -175,7 +152,7 @@ function GuestAuthPage({
   if (auth.user) {
     return (
       <HrefRedirect
-        href={safeReturnPath(auth.user.role, returnTo) ?? homePathForRole(auth.user.role)}
+        href={safeReturnPath(returnTo) ?? homePath}
       />
     )
   }
@@ -205,10 +182,10 @@ function usePasswordResetToken() {
   return token
 }
 
-function useWorkspaceUser(role: UserRole): UserDto {
+function useWorkspaceUser(): UserDto {
   const user = useAuth().user
-  if (!user || user.role !== role) {
-    throw new Error(`${role} workspace page rendered outside its guarded layout`)
+  if (!user) {
+    throw new Error('Workspace page rendered outside its guarded layout')
   }
   return user
 }

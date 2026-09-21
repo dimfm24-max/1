@@ -71,30 +71,6 @@ const userSettingsRoute = createRoute({
   component: lazyRouteComponent(() => import('./pages'), 'UserSettingsPage'),
 })
 
-const adminWorkspaceRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  id: 'adminWorkspace',
-  component: lazyRouteComponent(() => import('./pages'), 'AdminWorkspaceLayout'),
-})
-
-const adminDashboardRoute = createRoute({
-  getParentRoute: () => adminWorkspaceRoute,
-  path: '/admin',
-  component: lazyRouteComponent(() => import('./pages'), 'AdminDashboardPage'),
-})
-
-const adminUsersRoute = createRoute({
-  getParentRoute: () => adminWorkspaceRoute,
-  path: '/admin/users',
-  component: lazyRouteComponent(() => import('./pages'), 'AdminUsersPage'),
-})
-
-const adminSettingsRoute = createRoute({
-  getParentRoute: () => adminWorkspaceRoute,
-  path: '/admin/settings',
-  component: lazyRouteComponent(() => import('./pages'), 'AdminSettingsPage'),
-})
-
 const routeTree = rootRoute.addChildren([
   indexRoute,
   loginRoute,
@@ -105,11 +81,6 @@ const routeTree = rootRoute.addChildren([
     userHomeRoute,
     userProfileRoute,
     userSettingsRoute,
-  ]),
-  adminWorkspaceRoute.addChildren([
-    adminDashboardRoute,
-    adminUsersRoute,
-    adminSettingsRoute,
   ]),
 ])
 

@@ -4,26 +4,20 @@ import { parseDevelopmentSeedConfig } from './development-seed-config'
 
 const validSource = {
   DATABASE_URL: 'postgresql://app:password@localhost:54329/vibe?schema=public',
-  DEV_SEED_ADMIN_EMAIL: 'admin@example.com',
-  DEV_SEED_ADMIN_PASSWORD: 'local-admin-password',
   DEV_SEED_USER_EMAIL: 'user@example.com',
   DEV_SEED_USER_PASSWORD: 'local-user-password',
   NODE_ENV: 'development',
 }
 
 describe('development seed configuration', () => {
-  test('loads distinct login-ready accounts for a loopback development database', () => {
+  test('loads a login-ready account for a loopback development database', () => {
     expect(
       parseDevelopmentSeedConfig({
         ...validSource,
-        DEV_SEED_ADMIN_EMAIL: ' ADMIN@Example.COM ',
+        DEV_SEED_USER_EMAIL: ' USER@Example.COM ',
       }),
     ).toEqual({
       accounts: {
-        admin: {
-          email: 'admin@example.com',
-          password: 'local-admin-password',
-        },
         user: {
           email: 'user@example.com',
           password: 'local-user-password',
@@ -33,7 +27,7 @@ describe('development seed configuration', () => {
     })
   })
 
-  test('rejects production, non-loopback databases, partial credentials, and role collisions', () => {
+  test('rejects production, non-loopback databases, and partial credentials', () => {
     expect(() =>
       parseDevelopmentSeedConfig({ ...validSource, NODE_ENV: 'production' }),
     ).toThrow('disabled in production')
@@ -53,10 +47,7 @@ describe('development seed configuration', () => {
       parseDevelopmentSeedConfig({ ...validSource, DEV_SEED_USER_PASSWORD: '' }),
     ).toThrow('DEV_SEED_USER_PASSWORD')
     expect(() =>
-      parseDevelopmentSeedConfig({
-        ...validSource,
-        DEV_SEED_USER_EMAIL: validSource.DEV_SEED_ADMIN_EMAIL,
-      }),
-    ).toThrow('must be different')
+      parseDevelopmentSeedConfig({ ...validSource, DEV_SEED_USER_EMAIL: 'not-an-email' }),
+    ).toThrow('DEV_SEED_USER_EMAIL')
   })
 })

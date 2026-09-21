@@ -30,8 +30,8 @@ export const preferredBackendPort =
 export const preferredWebPort =
   55000 + (Number.parseInt(repositoryHash.slice(0, 6), 16) % 5000)
 export const defaultDatabaseUrl = defaultTestDatabaseUrl(defaultPostgresTestPort)
-export const e2eAdminEmail = 'admin@example.com'
-export const e2eAdminPassword = 'admin-e2e-password'
+export const e2eUserEmail = 'user@example.com'
+export const e2eUserPassword = 'user-e2e-password'
 
 /**
  * The E2E counterpart of the backend runner's `TEST_ALLOW_NON_TEST_DATABASE`: the same rule,

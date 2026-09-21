@@ -80,8 +80,6 @@ const envSchema = z.object({
   INGRESS_RATE_LIMIT_PROVIDER: z.enum(['local', 'yandex-sws']).default('local'),
   AUTH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(60),
   AUTH_RATE_LIMIT_WINDOW_SECONDS: z.coerce.number().int().positive().default(60),
-  ADMIN_USERS_READ_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(120),
-  ADMIN_USERS_READ_RATE_LIMIT_WINDOW_SECONDS: z.coerce.number().int().positive().default(60),
   // Where the auth and admin limiters count. `memory` is one process's own table and the whole
   // truth while one API instance serves every request: DigitalOcean's launch profile, an own
   // server, local development. `database` counts in PostgreSQL through one upsert per limited

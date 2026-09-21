@@ -23,7 +23,6 @@ export function createPrismaAuthRepository(db: DbClient): AuthRepository {
               email: input.user.email,
               passwordHash: input.user.passwordHash,
               displayName: input.user.displayName,
-              role: 'user',
             },
           })
           const session = await tx.authSession.create({
@@ -63,7 +62,6 @@ export function createPrismaAuthRepository(db: DbClient): AuthRepository {
               displayName: input.displayName,
               email: input.email,
               passwordHash: null,
-              role: 'user',
               ...(input.provider === 'apple'
                 ? { appleSubject: input.subject }
                 : { googleSubject: input.subject }),

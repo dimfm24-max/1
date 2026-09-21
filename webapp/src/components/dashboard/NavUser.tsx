@@ -9,7 +9,6 @@ import type { UserDto } from '@vibe/contracts'
 import { useState } from 'react'
 
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { Badge } from '@/components/ui/badge'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -83,14 +82,9 @@ export function NavUser({
                   <Typography variant="control" truncate>
                     {user.displayName ?? user.email}
                   </Typography>
-                  <div className="flex min-w-0 items-center gap-1.5">
-                    <Typography variant="caption" tone="muted" truncate>
-                      {user.email}
-                    </Typography>
-                    <Badge variant="outline" className="shrink-0 capitalize">
-                      {user.role}
-                    </Badge>
-                  </div>
+                  <Typography variant="caption" tone="muted" truncate>
+                    {user.email}
+                  </Typography>
                 </div>
                 <HugeiconsIcon
                   className="ml-auto size-4 group-data-[collapsible=icon]:hidden"

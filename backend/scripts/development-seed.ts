@@ -11,7 +11,6 @@ export async function bootstrapDevelopmentData(
   const seeded = await bootstrapDevelopmentAccounts(db, accounts)
 
   return {
-    admin: { email: seeded.admin.email, role: seeded.admin.role },
-    user: { email: seeded.user.email, role: seeded.user.role },
+    user: { email: seeded.user.email },
   }
 }

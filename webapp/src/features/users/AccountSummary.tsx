@@ -15,7 +15,6 @@ export function AccountSummary({ user }: { user: UserDto }) {
           value: user.displayName ?? 'No display name',
         },
         {
-          description: `Workspace role: ${formatRole(user.role)}`,
           icon: Calendar03Icon,
           label: 'Member since',
           value: formatDate(user.createdAt),
@@ -25,6 +24,3 @@ export function AccountSummary({ user }: { user: UserDto }) {
   )
 }
 
-function formatRole(role: UserDto['role']) {
-  return role.charAt(0).toUpperCase() + role.slice(1)
-}

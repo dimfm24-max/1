@@ -23,7 +23,6 @@ test('AccountSummary shows the member-since date through the shared formatter', 
         displayName: 'Jane Doe',
         email: 'jane@example.com',
         id: 'user-1',
-        role: 'user',
       },
     }),
   )

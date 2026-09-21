@@ -7,24 +7,14 @@ import { createPrismaUsersRepository } from './infrastructure/users-repository'
 import { createUsersRoutes } from './transport/routes'
 
 type CreateUsersModuleOptions = {
-  adminUsersReadRateLimit: MiddlewareHandler<AuthHttpEnv>
   db: DbClient
-  requireAdmin: MiddlewareHandler<AuthHttpEnv>
   requireAuth: MiddlewareHandler<AuthHttpEnv>
 }
 
 export function createUsersModule(options: CreateUsersModuleOptions) {
   const repository = createPrismaUsersRepository(options.db)
-  const service = new UsersService({
-    adminDashboardReader: repository,
-    adminUsersReader: repository,
-    clock: { now: () => new Date() },
-    profileWriter: repository,
-    userRoleUpdater: repository,
-  })
+  const service = new UsersService({ profileWriter: repository })
   return createUsersRoutes({
-    adminUsersReadRateLimit: options.adminUsersReadRateLimit,
-    requireAdmin: options.requireAdmin,
     requireAuth: options.requireAuth,
     service,
   })

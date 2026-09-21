@@ -55,17 +55,8 @@ export function createApp({
   // One store per policy, in memory or in PostgreSQL as RATE_LIMIT_STORE says; the middleware
   // never learns which.
   const rateLimitStore = createRateLimitStores(env, prisma)
-  const adminUsersReadRateLimit = createFixedWindowRateLimit<AuthHttpEnv>({
-    errorMessage: 'Too many admin user directory requests',
-    key: (c) => c.var.user.id,
-    max: env.ADMIN_USERS_READ_RATE_LIMIT_MAX,
-    store: rateLimitStore('admin-users-read'),
-    windowSeconds: env.ADMIN_USERS_READ_RATE_LIMIT_WINDOW_SECONDS,
-  })
   const users = createUsersModule({
-    adminUsersReadRateLimit,
     db: prisma,
-    requireAdmin: auth.requireAdmin,
     requireAuth: auth.requireAuth,
   })
   const uploads = createUploadsModule({
@@ -123,7 +114,6 @@ export function createApp({
     store: rateLimitStore('account'),
   })) {
     app.use('/api/users/*', middleware)
-    app.use('/api/admin/*', middleware)
     app.use('/api/uploads/*', middleware)
   }
   app.get('/', (c) => {
@@ -159,7 +149,6 @@ export function createApp({
   })
   app.route('/api/auth', auth.routes)
   app.route('/api/users', users.userRoutes)
-  app.route('/api/admin', users.adminRoutes)
   app.route('/api/notifications', notifications.createRoutes(auth.authenticateAccessToken))
   app.route('/api/uploads', uploads.routes)
 
