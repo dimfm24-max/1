@@ -1,4 +1,4 @@
-import type { UserDto } from '@vibe/contracts'
+import type { UserDto } from '@dilife/contracts'
 
 import {
   Sidebar,
@@ -38,14 +38,14 @@ export function AppSidebar({
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild size="lg" tooltip="vibe">
+            <SidebarMenuButton asChild size="lg" tooltip="dilife">
               <DashboardLink to={homePath}>
                 <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
                   <Typography variant="control">W</Typography>
                 </span>
                 <span className="grid min-w-0 gap-0.5 group-data-[collapsible=icon]:hidden">
                   <Typography variant="control" truncate>
-                    vibe
+                    dilife
                   </Typography>
                   <Typography variant="caption" tone="muted" truncate>
                     {workspaceLabel}

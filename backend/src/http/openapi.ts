@@ -1,4 +1,4 @@
-import { apiErrorSchema } from '@vibe/contracts'
+import { apiErrorSchema } from '@dilife/contracts'
 
 const errorResponseContent = {
   'application/json': {

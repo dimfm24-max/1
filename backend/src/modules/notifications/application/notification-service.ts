@@ -2,7 +2,7 @@ import type {
   RegisterPushTokenRequest,
   TestPushNotificationPayload,
   UnregisterPushTokenRequest,
-} from '@vibe/contracts'
+} from '@dilife/contracts'
 
 import type {
   CheckPushReceiptsOptions,

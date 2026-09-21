@@ -491,7 +491,7 @@ test('wide dashboard navigation exposes the active destination as the current pa
 
   await renderAndFlush(
     root,
-    <NavigationRail title="vibe">
+    <NavigationRail title="dilife">
       <NavigationRailItem
         icon={{ ios: 'square.grid.2x2.fill', android: 'view_module', web: 'view_module' }}
         isActive

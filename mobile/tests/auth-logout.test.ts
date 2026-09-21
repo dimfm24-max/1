@@ -1,4 +1,4 @@
-import type { TokenLogoutRequest } from '@vibe/contracts';
+import type { TokenLogoutRequest } from '@dilife/contracts';
 import { expect, test } from 'bun:test';
 
 import { createLogoutOperationCoordinator, logoutWithPushCleanup } from '../src/features/auth/logout';

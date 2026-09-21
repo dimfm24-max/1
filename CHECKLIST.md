@@ -14,7 +14,7 @@
 | Вопрос | Ответ |
 | --- | --- |
 | Новый проект из шаблона или доработка самого шаблона? | Новый проект из шаблона. |
-| Название проекта / slug | Vibe / `vibe` |
+| Название проекта / slug | DiLife / `dilife` |
 | Адрес своего репозитория GitHub, если он есть | https://github.com/dimfm24-max/1 — публичный, ветка по умолчанию `mobile`. |
 
 При установке отключи remote шаблона. Без своего адреса GitHub оставь репозиторий без `origin` и публикации. При доработке шаблона remote сохраняется.
@@ -188,7 +188,7 @@
 
 - [x] Ответы заполнены; статус — `completed YYYY-MM-DD`
 - [x] Проверки перед завершением задачи записаны (какие: `template:check`, `architecture:check`, `typecheck`, `lint`, `test:contracts`, `test:backend:unit`, `test:backend:integration`, `test:webapp`, `test:mobile`, `test:website`, `build:webapp`; Maestro E2E и Playwright — по запросу)
-- [x] Имена шаблона заменены: `vibe` (БД, cookie, образы), `@vibe/*` (пакеты), `com.vibe.app` (мобильные идентификаторы), заголовок `Vibe`; `bun.lock` пересоздан
+- [x] Имена шаблона заменены: `dilife` (БД, cookie, образы), `@dilife/*` (пакеты), `com.dilife.app` (мобильные идентификаторы), заголовок `DiLife`; `bun.lock` пересоздан
 - [x] README отложенных приложений содержат пояснение
 - [x] Раздел «Initial setup only» и его маркеры удалены из `AGENTS.md`
 - [x] Пользователю сообщены локальные URL, выполненные команды и действия, требующие его разрешения

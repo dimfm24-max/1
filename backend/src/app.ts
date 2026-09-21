@@ -118,7 +118,7 @@ export function createApp({
   }
   app.get('/', (c) => {
     return c.json({
-      name: 'vibe backend',
+      name: 'dilife backend',
       status: 'ok',
     })
   })
@@ -160,7 +160,7 @@ export function createApp({
 
   app.doc('/openapi.json', {
     openapi: '3.0.0',
-    info: { title: 'vibe API', version: '1.0.0' },
+    info: { title: 'dilife API', version: '1.0.0' },
   })
   app.notFound((c) => c.json(errorResponse('NOT_FOUND', 'Route not found'), 404))
   app.onError(handleError)

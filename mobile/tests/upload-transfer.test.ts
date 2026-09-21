@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import type { UploadTicket } from '@vibe/contracts';
+import type { UploadTicket } from '@dilife/contracts';
 
 import {
   sendUploadTicket,

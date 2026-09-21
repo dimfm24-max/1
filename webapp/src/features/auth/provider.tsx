@@ -4,7 +4,7 @@ import type {
   PasswordResetConfirmRequest,
   PasswordResetRequest,
   RegisterRequest,
-} from '@vibe/contracts'
+} from '@dilife/contracts'
 import {
   type PropsWithChildren,
   useCallback,

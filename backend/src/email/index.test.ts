@@ -4,7 +4,7 @@ import { loadEnv } from '../env'
 import { createEmailDelivery, disabledEmailDelivery } from '.'
 
 const base = {
-  DATABASE_URL: 'postgresql://superuser:superpassword@localhost:54329/vibe',
+  DATABASE_URL: 'postgresql://superuser:superpassword@localhost:54329/dilife',
   JWT_SECRET: '12345678901234567890123456789012',
   WEBAPP_ORIGIN: 'http://localhost:5173',
 }

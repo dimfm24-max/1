@@ -4,7 +4,7 @@ import {
   registerRequestSchema,
   type LoginRequest,
   type RegisterRequest,
-} from '@vibe/contracts';
+} from '@dilife/contracts';
 import { Redirect, type Href } from 'expo-router';
 import { useState } from 'react';
 

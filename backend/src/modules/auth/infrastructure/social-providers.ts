@@ -1,7 +1,7 @@
 import { OAuth2Client } from 'google-auth-library'
 import { createRemoteJWKSet, jwtVerify, type JWTVerifyGetKey } from 'jose'
 
-import type { SocialAuthProvider } from '@vibe/contracts'
+import type { SocialAuthProvider } from '@dilife/contracts'
 
 import type { AppEnv } from '../../../env'
 import type { SocialIdentity } from '../application/ports'

@@ -1,4 +1,4 @@
-import type { UserDto } from '@vibe/contracts'
+import type { UserDto } from '@dilife/contracts'
 
 export type AuthUserRecord = {
   id: string

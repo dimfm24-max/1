@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { passwordResetConfirmRequestSchema, registerRequestSchema } from '@vibe/contracts'
+import { passwordResetConfirmRequestSchema, registerRequestSchema } from '@dilife/contracts'
 import { z } from 'zod'
 
 import {

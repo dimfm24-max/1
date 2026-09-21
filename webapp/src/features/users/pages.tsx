@@ -1,4 +1,4 @@
-import type { UserDto } from '@vibe/contracts'
+import type { UserDto } from '@dilife/contracts'
 
 import { PageContainer, PageHeader } from '@/components/PageLayout'
 import { AvatarPanel } from '@/features/avatar'

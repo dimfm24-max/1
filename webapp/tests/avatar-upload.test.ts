@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, mock, test } from 'bun:test'
-import { AVATAR_MAX_BYTES, type UploadTicket } from '@vibe/contracts'
+import { AVATAR_MAX_BYTES, type UploadTicket } from '@dilife/contracts'
 
 import {
   AvatarUploadError,

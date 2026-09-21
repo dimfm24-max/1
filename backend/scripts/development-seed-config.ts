@@ -1,4 +1,4 @@
-import { emailSchema, passwordSchema } from '@vibe/contracts'
+import { emailSchema, passwordSchema } from '@dilife/contracts'
 
 import type { DevelopmentSeedAccounts } from '../src/modules/users/infrastructure/development-bootstrap'
 

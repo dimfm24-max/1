@@ -2,7 +2,7 @@ import {
   apiErrorSchema,
   updateProfileRequestSchema,
   updateProfileResponseSchema,
-} from '@vibe/contracts'
+} from '@dilife/contracts'
 import { createRoute, OpenAPIHono } from '@hono/zod-openapi'
 import type { MiddlewareHandler } from 'hono'
 

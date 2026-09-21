@@ -5,7 +5,7 @@ export type BrowserSessionEvent = {
   state: BrowserSessionState
 }
 
-const sessionEventStorageKey = 'vibe:auth-session-event'
+const sessionEventStorageKey = 'dilife:auth-session-event'
 let currentSessionEvent: BrowserSessionEvent = {
   epoch: 'initial',
   state: 'cleared',

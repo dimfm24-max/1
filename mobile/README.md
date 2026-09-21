@@ -57,7 +57,7 @@ iOS Simulator может скрыть эту ошибку, поскольку lo
 ## Стек
 
 - Expo SDK 57, React Native, TypeScript и Expo Router.
-- TanStack Query/Form и общие Zod-контракты `@vibe/contracts`.
+- TanStack Query/Form и общие Zod-контракты `@dilife/contracts`.
 - Expo SecureStore и Notifications.
 - Expo ImagePicker, ImageManipulator и FileSystem для аватаров.
 - Expo Apple Authentication и React Native Google Sign-In для необязательного социального входа.
@@ -159,7 +159,7 @@ Auth smoke проверяет регистрацию, авторизованны
 docker compose version
 docker info
 docker compose --env-file backend/.env up -d postgres_test
-export TEST_DATABASE_URL="postgresql://superuser:superpassword@localhost:54330/vibe_test?schema=public"
+export TEST_DATABASE_URL="postgresql://superuser:superpassword@localhost:54330/dilife_test?schema=public"
 export LAN_IP=<your-machine-lan-ip>
 export BACKEND_PORT=3000
 export METRO_PORT=8081

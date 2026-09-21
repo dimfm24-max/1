@@ -1,4 +1,4 @@
-import type { AvatarContentType } from '@vibe/contracts'
+import type { AvatarContentType } from '@dilife/contracts'
 
 /**
  * Identifies an image by its leading bytes.

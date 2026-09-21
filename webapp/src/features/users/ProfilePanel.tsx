@@ -1,4 +1,4 @@
-import type { UserDto } from '@vibe/contracts'
+import type { UserDto } from '@dilife/contracts'
 import { useId, useState, type FormEvent } from 'react'
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'

@@ -10,7 +10,7 @@ describe('loadEnv', () => {
     // asserts nothing - there is no code between the default and the assertion - and turns every
     // retuned default into a failing test whose only fix is editing the expectation.
     const env = loadEnv({
-      DATABASE_URL: 'postgresql://superuser:superpassword@localhost:54329/vibe',
+      DATABASE_URL: 'postgresql://superuser:superpassword@localhost:54329/dilife',
       JWT_SECRET: '12345678901234567890123456789012',
       CORS_ORIGINS: 'http://localhost:5173, http://localhost:8081',
     })
@@ -21,7 +21,7 @@ describe('loadEnv', () => {
   test('loads background entrypoints without exposing the API signing key', () => {
     const env = loadBackgroundEnv({
       NODE_ENV: 'production',
-      DATABASE_URL: 'postgresql://superuser:superpassword@localhost:54329/vibe',
+      DATABASE_URL: 'postgresql://superuser:superpassword@localhost:54329/dilife',
       JWT_SECRET: 'fedcba9876543210'.repeat(4),
       // A background runner boots the same image as the API, so it faces the same fail-closed
       // storage rules: no filesystem driver in production, and a remote endpoint behind a gate.
@@ -44,7 +44,7 @@ describe('loadEnv', () => {
     // on WEBAPP_ORIGIN refuse http://localhost:5173, and the scheduler `bun run dev` now starts
     // would die at boot while the API next to it kept running.
     const env = loadBackgroundEnv({
-      DATABASE_URL: 'postgresql://superuser:superpassword@localhost:54329/vibe',
+      DATABASE_URL: 'postgresql://superuser:superpassword@localhost:54329/dilife',
       JWT_SECRET: '12345678901234567890123456789012',
       WEBAPP_ORIGIN: 'http://localhost:5173',
       EMAIL_DELIVERY: 'console',
@@ -64,7 +64,7 @@ describe('loadEnv', () => {
 
   test('parses social auth provider configuration', () => {
     const env = loadEnv({
-      DATABASE_URL: 'postgresql://superuser:superpassword@localhost:54329/vibe',
+      DATABASE_URL: 'postgresql://superuser:superpassword@localhost:54329/dilife',
       JWT_SECRET: '12345678901234567890123456789012',
       APPLE_AUTH_BUNDLE_ID: 'com.example.app',
       APPLE_AUTH_JWKS_TIMEOUT_MS: '8000',
@@ -80,14 +80,14 @@ describe('loadEnv', () => {
     expect(() =>
       loadEnv({
         NODE_ENV: 'production',
-        DATABASE_URL: 'postgresql://superuser:superpassword@localhost:54329/vibe',
+        DATABASE_URL: 'postgresql://superuser:superpassword@localhost:54329/dilife',
         JWT_SECRET: 'replace-with-at-least-32-random-characters',
       }),
     ).toThrow('JWT_SECRET')
 
     expect(() =>
       loadEnv({
-        DATABASE_URL: 'postgresql://superuser:superpassword@localhost:54329/vibe',
+        DATABASE_URL: 'postgresql://superuser:superpassword@localhost:54329/dilife',
         JWT_SECRET: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
         COOKIE_SECURE: 'true',
         CORS_ORIGINS: 'https://web.example.com',
@@ -96,7 +96,7 @@ describe('loadEnv', () => {
 
     expect(() =>
       loadEnv({
-        DATABASE_URL: 'postgresql://superuser:superpassword@localhost:54329/vibe',
+        DATABASE_URL: 'postgresql://superuser:superpassword@localhost:54329/dilife',
         JWT_SECRET: 'a-memorable-human-secret-phrase-that-is-long-enough-to-pass',
         COOKIE_SECURE: 'true',
         CORS_ORIGINS: 'https://web.example.com',
@@ -107,7 +107,7 @@ describe('loadEnv', () => {
   test('requires generated secrets, secure cookies, and HTTPS origins in production', () => {
     const productionBase = {
       NODE_ENV: 'production',
-      DATABASE_URL: 'postgresql://superuser:superpassword@localhost:54329/vibe',
+      DATABASE_URL: 'postgresql://superuser:superpassword@localhost:54329/dilife',
       JWT_SECRET: '0123456789abcdef'.repeat(4),
       COOKIE_SECURE: 'true',
       CORS_ORIGINS: 'https://web.example.com',
@@ -135,7 +135,7 @@ describe('loadEnv', () => {
 
   test('the task outbox has usable defaults and refuses nonsense', () => {
     const base = {
-      DATABASE_URL: 'postgresql://superuser:superpassword@localhost:54329/vibe',
+      DATABASE_URL: 'postgresql://superuser:superpassword@localhost:54329/dilife',
       JWT_SECRET: '12345678901234567890123456789012',
     }
 
@@ -150,7 +150,7 @@ describe('loadEnv', () => {
 
   test('counts rate limits in process memory unless the deployment selects the database', () => {
     const base = {
-      DATABASE_URL: 'postgresql://superuser:superpassword@localhost:54329/vibe',
+      DATABASE_URL: 'postgresql://superuser:superpassword@localhost:54329/dilife',
       JWT_SECRET: '12345678901234567890123456789012',
     }
 
@@ -163,7 +163,7 @@ describe('loadEnv', () => {
 
   test('rejects unsafe production CORS origins', () => {
     const baseEnv = {
-      DATABASE_URL: 'postgresql://superuser:superpassword@localhost:54329/vibe',
+      DATABASE_URL: 'postgresql://superuser:superpassword@localhost:54329/dilife',
       JWT_SECRET: '12345678901234567890123456789012',
     }
 
@@ -199,7 +199,7 @@ describe('loadEnv', () => {
 
   test('requires WEBAPP_ORIGIN to be an HTTP origin and HTTPS in production', () => {
     const baseEnv = {
-      DATABASE_URL: 'postgresql://superuser:superpassword@localhost:54329/vibe',
+      DATABASE_URL: 'postgresql://superuser:superpassword@localhost:54329/dilife',
       JWT_SECRET: '12345678901234567890123456789012',
     }
 
@@ -224,7 +224,7 @@ describe('loadEnv', () => {
   test('keeps absolute session lifetime at least as long as refresh lifetime', () => {
     expect(() =>
       loadEnv({
-        DATABASE_URL: 'postgresql://superuser:superpassword@localhost:54329/vibe',
+        DATABASE_URL: 'postgresql://superuser:superpassword@localhost:54329/dilife',
         JWT_SECRET: '12345678901234567890123456789012',
         REFRESH_TOKEN_TTL_DAYS: '30',
         SESSION_ABSOLUTE_TTL_DAYS: '29',
@@ -235,7 +235,7 @@ describe('loadEnv', () => {
   test('bounds refresh replay tolerance to a short window', () => {
     expect(() =>
       loadEnv({
-        DATABASE_URL: 'postgresql://superuser:superpassword@localhost:54329/vibe',
+        DATABASE_URL: 'postgresql://superuser:superpassword@localhost:54329/dilife',
         JWT_SECRET: '12345678901234567890123456789012',
         REFRESH_REUSE_GRACE_SECONDS: '61',
       }),
@@ -244,7 +244,7 @@ describe('loadEnv', () => {
 
   test('requires an explicit client IP header when a trusted proxy is enabled', () => {
     const baseEnv = {
-      DATABASE_URL: 'postgresql://superuser:superpassword@localhost:54329/vibe',
+      DATABASE_URL: 'postgresql://superuser:superpassword@localhost:54329/dilife',
       JWT_SECRET: '12345678901234567890123456789012',
       TRUST_PROXY: 'true',
     }
@@ -260,7 +260,7 @@ describe('loadEnv', () => {
 
   test('requires the documented trusted proxy contract for Yandex SWS ingress', () => {
     const baseEnv = {
-      DATABASE_URL: 'postgresql://superuser:superpassword@localhost:54329/vibe',
+      DATABASE_URL: 'postgresql://superuser:superpassword@localhost:54329/dilife',
       JWT_SECRET: '12345678901234567890123456789012',
       INGRESS_RATE_LIMIT_PROVIDER: 'yandex-sws',
       TRUST_PROXY: 'true',
@@ -305,7 +305,7 @@ function parseEnvExample() {
 
 describe('private storage env', () => {
   const base = {
-    DATABASE_URL: 'postgresql://superuser:superpassword@localhost:54329/vibe',
+    DATABASE_URL: 'postgresql://superuser:superpassword@localhost:54329/dilife',
     JWT_SECRET: '12345678901234567890123456789012',
   }
   const productionBase = {
@@ -431,7 +431,7 @@ describe('private storage env', () => {
 
 describe('email env', () => {
   const base = {
-    DATABASE_URL: 'postgresql://superuser:superpassword@localhost:54329/vibe',
+    DATABASE_URL: 'postgresql://superuser:superpassword@localhost:54329/dilife',
     JWT_SECRET: '12345678901234567890123456789012',
     WEBAPP_ORIGIN: 'http://localhost:5173',
   }

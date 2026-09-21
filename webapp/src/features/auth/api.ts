@@ -17,7 +17,7 @@ import {
   type PasswordResetRequest,
   type PasswordResetRequestResponse,
   type RegisterRequest,
-} from '@vibe/contracts'
+} from '@dilife/contracts'
 import type { z } from 'zod'
 import { ApiRequestError, HttpClient, type HttpRequestOptions } from '@/platform/api'
 import {

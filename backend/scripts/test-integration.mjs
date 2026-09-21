@@ -98,7 +98,7 @@ export async function runBackendIntegration({
           '-U',
           'superuser',
           '-d',
-          'vibe_test',
+          'dilife_test',
         ],
         {
           cwd: repositoryRoot,

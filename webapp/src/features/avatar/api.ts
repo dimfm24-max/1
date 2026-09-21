@@ -3,7 +3,7 @@ import {
   createAvatarUploadRequestSchema,
   createAvatarUploadResponseSchema,
   type CreateAvatarUploadRequest,
-} from '@vibe/contracts'
+} from '@dilife/contracts'
 
 import type { AuthenticatedTransport } from '@/platform/api'
 

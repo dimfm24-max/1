@@ -115,7 +115,7 @@ function BottomTabList(props: TabListProps) {
 }
 
 function RailTabList({ children }: TabListProps) {
-  return <NavigationRail title="vibe">{children}</NavigationRail>;
+  return <NavigationRail title="dilife">{children}</NavigationRail>;
 }
 
 type TabButtonProps = TabTriggerSlotProps & {

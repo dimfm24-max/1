@@ -325,7 +325,7 @@ test('browser auth coordinator uses one named exclusive Web Lock when available'
   })).resolves.toBe('done');
 
   expect(events).toEqual([
-    'lock:vibe:auth-cookie-mutation:exclusive',
+    'lock:dilife:auth-cookie-mutation:exclusive',
     'mutation',
     'lock:released',
   ]);
@@ -347,7 +347,7 @@ test('browser auth coordinator fails closed in a browser without Web Locks', asy
 test('browser session coordinator accepts remote events and advances its monotonic epoch', async () => {
   if (typeof BroadcastChannel === 'undefined') return;
 
-  const remoteChannel = new BroadcastChannel('vibe:expo-web-auth-session');
+  const remoteChannel = new BroadcastChannel('dilife:expo-web-auth-session');
   const remoteEpoch = browserSessionCoordinator.current().epoch + 1_000_000;
   const received = new Promise<{ epoch: number; state: string; userId?: string }>((resolve) => {
     const unsubscribe = browserSessionCoordinator.subscribe((event) => {

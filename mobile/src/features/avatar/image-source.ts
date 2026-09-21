@@ -1,4 +1,4 @@
-import type { Avatar } from '@vibe/contracts';
+import type { Avatar } from '@dilife/contracts';
 
 /**
  * The longest edge a stored avatar needs.

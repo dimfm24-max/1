@@ -1,4 +1,4 @@
-import type { PushMutationResponse, UnregisterPushTokenRequest } from '@vibe/contracts';
+import type { PushMutationResponse, UnregisterPushTokenRequest } from '@dilife/contracts';
 
 type ModernUnregisterPushTokenRequest = Extract<
   UnregisterPushTokenRequest,

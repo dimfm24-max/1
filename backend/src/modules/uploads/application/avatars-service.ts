@@ -2,7 +2,7 @@ import type {
   AvatarResponse,
   CreateAvatarUploadRequest,
   CreateAvatarUploadResponse,
-} from '@vibe/contracts'
+} from '@dilife/contracts'
 
 import { UploadsFailure } from '../domain/errors'
 import {

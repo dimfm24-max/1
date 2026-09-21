@@ -8,7 +8,7 @@ type BrowserLockManager = {
   ) => Promise<T>;
 };
 
-const browserAuthLockName = 'vibe:auth-cookie-mutation';
+const browserAuthLockName = 'dilife:auth-cookie-mutation';
 
 export class BrowserAuthLockUnavailableError extends Error {
   readonly code = 'AUTH_BROWSER_LOCK_UNAVAILABLE';

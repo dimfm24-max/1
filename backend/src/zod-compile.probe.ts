@@ -16,7 +16,7 @@
  * hide an import-order regression that loads Zod or the contracts before `zod/compile`.
  */
 
-type Contracts = typeof import('@vibe/contracts')
+type Contracts = typeof import('@dilife/contracts')
 
 type SchemaCase = {
   name: string
@@ -188,7 +188,7 @@ if (mode !== 'composition-root' && mode !== 'plain') {
 }
 
 if (mode === 'composition-root') await import('./app')
-const contracts: Contracts = await import('@vibe/contracts')
+const contracts: Contracts = await import('@dilife/contracts')
 
 const probeSchema = contracts.emailSchema
 const codegenPerParse = [1, 2, 3].map(() =>

@@ -1,4 +1,4 @@
-import type { CookieRefreshResponse } from '@vibe/contracts'
+import type { CookieRefreshResponse } from '@dilife/contracts'
 import { ApiRequestError } from '@/platform/api'
 
 import type { AuthApi } from './api'

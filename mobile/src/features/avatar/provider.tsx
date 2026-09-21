@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import type { Avatar, AvatarResponse } from '@vibe/contracts';
+import type { Avatar, AvatarResponse } from '@dilife/contracts';
 
 import { useAuth } from '@/features/auth';
 import type { UploadSender } from '@/platform/uploads';

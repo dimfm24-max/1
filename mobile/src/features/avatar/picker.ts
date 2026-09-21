@@ -1,4 +1,4 @@
-import type { AvatarContentType } from '@vibe/contracts';
+import type { AvatarContentType } from '@dilife/contracts';
 
 /** An image that is ready to upload: already normalized, with its real byte size measured. */
 export type PickedAvatar = {

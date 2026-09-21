@@ -5,7 +5,7 @@ import type { DbClient } from '../../db'
 import { loadEnv } from '../../env'
 
 const env = loadEnv({
-  DATABASE_URL: 'postgresql://superuser:superpassword@localhost:54329/vibe',
+  DATABASE_URL: 'postgresql://superuser:superpassword@localhost:54329/dilife',
   ACCESS_TOKEN_TTL_SECONDS: '60',
   COOKIE_SECURE: 'true',
   CORS_ORIGINS: 'https://web.example.com',

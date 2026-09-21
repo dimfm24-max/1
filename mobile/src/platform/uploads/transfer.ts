@@ -1,4 +1,4 @@
-import type { UploadTicket } from '@vibe/contracts';
+import type { UploadTicket } from '@dilife/contracts';
 
 /**
  * The direct-to-storage transfer protocol.

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from 'bun:test';
-import { AVATAR_MAX_BYTES } from '@vibe/contracts';
+import { AVATAR_MAX_BYTES } from '@dilife/contracts';
 
 import { AvatarApi } from '../src/features/avatar/api';
 import { ApiRequestError, ApiTransport } from '../src/platform/api';

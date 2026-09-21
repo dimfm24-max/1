@@ -4,7 +4,7 @@ import { checkArchitectureSources } from './architecture-check.mjs'
 
 describe('backend layers', () => {
   test('accepts pure domain and application ports', () => {
-    expect(check([file('backend/src/modules/auth/domain/session.ts', "import type { UserDto } from '@vibe/contracts'")])).toEqual([])
+    expect(check([file('backend/src/modules/auth/domain/session.ts', "import type { UserDto } from '@dilife/contracts'")])).toEqual([])
   })
 
   test('rejects framework, persistence, env, and infrastructure from inner layers', () => {

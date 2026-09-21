@@ -5,7 +5,7 @@ import { loadEnv } from './env'
 import { createApp } from './app'
 
 const env = loadEnv({
-  DATABASE_URL: 'postgresql://superuser:superpassword@localhost:54329/vibe',
+  DATABASE_URL: 'postgresql://superuser:superpassword@localhost:54329/dilife',
   JWT_SECRET: '12345678901234567890123456789012',
 })
 

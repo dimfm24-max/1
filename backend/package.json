@@ -1,5 +1,5 @@
 {
-  "name": "@vibe/backend",
+  "name": "@dilife/backend",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -38,7 +38,7 @@
     "@prisma/adapter-pg": "7.9.0",
     "@prisma/client": "7.9.0",
     "@smithy/signature-v4": "^5.6.5",
-    "@vibe/contracts": "workspace:*",
+    "@dilife/contracts": "workspace:*",
     "croner": "^10.0.1",
     "dotenv": "^17.4.2",
     "google-auth-library": "^10.9.1",

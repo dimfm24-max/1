@@ -1,4 +1,4 @@
-import type { SocialAuthProvider, SocialAuthRequest } from '@vibe/contracts';
+import type { SocialAuthProvider, SocialAuthRequest } from '@dilife/contracts';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';

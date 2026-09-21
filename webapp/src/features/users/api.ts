@@ -2,7 +2,7 @@ import {
   updateProfileRequestSchema,
   updateProfileResponseSchema,
   type UpdateProfileRequest,
-} from '@vibe/contracts'
+} from '@dilife/contracts'
 
 import type { AuthenticatedTransport } from '@/platform/api'
 

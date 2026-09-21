@@ -31,7 +31,7 @@ const testIds = {
 runMaestroPolicyAudit()
 
 const appConfig = readAppConfig()
-const appId = process.env.MAESTRO_APP_ID ?? process.env.APP_ID ?? 'com.vibe.app'
+const appId = process.env.MAESTRO_APP_ID ?? process.env.APP_ID ?? 'com.dilife.app'
 const devServerUrl = requireDevServerUrl()
 const devClientScheme =
   process.env.MAESTRO_DEV_CLIENT_SCHEME ?? defaultDevClientScheme(appConfig) ?? 'exp+mobile'

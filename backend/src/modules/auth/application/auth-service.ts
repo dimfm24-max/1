@@ -5,7 +5,7 @@ import type {
   RegisterPayload,
   SocialAuthPayload,
   SocialAuthProvider,
-} from '@vibe/contracts'
+} from '@dilife/contracts'
 
 import { AuthFailure } from '../domain/errors'
 import { sessionExpiresAt, type SessionMetadata } from '../domain/session'

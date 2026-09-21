@@ -5,7 +5,7 @@ import {
   type SocialAuthProvider,
   type SocialAuthRequest,
   type UserDto,
-} from '@vibe/contracts';
+} from '@dilife/contracts';
 import {
   createContext,
   type PropsWithChildren,

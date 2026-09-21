@@ -7,11 +7,11 @@ WORKDIR /app
 # remain valid for both repository shapes.
 COPY . .
 
-RUN bun install --frozen-lockfile --filter @vibe/backend
+RUN bun install --frozen-lockfile --filter @dilife/backend
 
 WORKDIR /app/backend
 
-RUN DATABASE_URL="postgresql://superuser:superpassword@localhost:5432/vibe?schema=public" bun run prisma:generate
+RUN DATABASE_URL="postgresql://superuser:superpassword@localhost:5432/dilife?schema=public" bun run prisma:generate
 
 FROM oven/bun:1.4.0 AS production-dependencies
 
@@ -19,7 +19,7 @@ WORKDIR /app
 
 COPY . .
 
-RUN bun install --frozen-lockfile --production --filter @vibe/backend
+RUN bun install --frozen-lockfile --production --filter @dilife/backend
 
 FROM oven/bun:1.4.0 AS runtime
 

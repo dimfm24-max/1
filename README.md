@@ -1,7 +1,7 @@
-# Vibe
+# DiLife
 
 <p align="center">
-  <img src="docs/assets/vibe_tmpl_schema.png" alt="Vibe architecture diagram" width="100%">
+  <img src="docs/assets/vibe_tmpl_schema.png" alt="DiLife architecture diagram" width="100%">
 </p>
 
 A web and mobile product with a shared backend: Bun/Hono API, React browser app, and an Expo application.
@@ -30,7 +30,7 @@ Communicate in my language.
 
 ### Rename the project
 
-Search with `rg -n "vibe|vibe|vibe|Vibe"`. Check packages, databases, cookies, Docker and Compose, images, architecture-check aliases, and `webapp/index.html`. Make targeted edits. Regenerate `bun.lock` with the pinned Bun version. Install dependencies. Check types, architecture, and backend integration for the selected applications.
+This project is already named DiLife. To rename it again, search with `rg -n "dilife|DiLife|com.dilife.app"`. Check packages, databases, cookies, Docker and Compose, images, architecture-check aliases, and `webapp/index.html`. Leave the Expo `slug` alone unless the project is renamed on expo.dev first. Make targeted edits. Regenerate `bun.lock` with the pinned Bun version. Install dependencies. Check types, architecture, and backend integration for the selected applications.
 
 ### Hosting and deployment
 

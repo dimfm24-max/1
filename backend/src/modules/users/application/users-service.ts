@@ -1,4 +1,4 @@
-import type { UpdateProfileRequest, UserDto } from '@vibe/contracts'
+import type { UpdateProfileRequest, UserDto } from '@dilife/contracts'
 
 import type { AuthenticatedPrincipal } from '../../auth'
 import type { ProfileWriter, UserRecord } from './ports'

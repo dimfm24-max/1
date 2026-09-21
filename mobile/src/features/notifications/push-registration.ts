@@ -1,4 +1,4 @@
-import type { RegisterPushTokenRequest } from '@vibe/contracts';
+import type { RegisterPushTokenRequest } from '@dilife/contracts';
 
 export type PushInstallationMutation = {
   generation: number;

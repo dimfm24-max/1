@@ -42,7 +42,7 @@ bun run --cwd backend db:deploy
 
 `test:unit` и `test:integration` принимают точные найденные пути относительно `backend/` и фильтр имени Bun `-t`. Без фильтров запускается весь набор.
 
-`bun run test:integration` запускает `postgres_test` из `../docker-compose.yml`, применяет миграции к `vibe_test` и выполняет выбранные тесты. Каждый запуск получает отдельный Compose-проект. Блок `finally` удаляет только его сервис, именованный том и сеть, в том числе после частичной ошибки запуска.
+`bun run test:integration` запускает `postgres_test` из `../docker-compose.yml`, применяет миграции к `dilife_test` и выполняет выбранные тесты. Каждый запуск получает отдельный Compose-проект. Блок `finally` удаляет только его сервис, именованный том и сеть, в том числе после частичной ошибки запуска.
 
 - `TEST_KEEP_DOCKER=1` сохраняет эти ресурсы для диагностики.
 - Для внешнего Docker задай вместе `TEST_SKIP_DOCKER=1` и `TEST_DATABASE_URL`. В этом режиме скрипт не меняет Docker-ресурсы.
@@ -56,8 +56,8 @@ bun run --cwd backend db:deploy
 
 | Переменная | Локальный сервис | БД | Пользователь / пароль | Порт |
 | --- | --- | --- | --- | --- |
-| `DATABASE_URL` | `postgres` | `vibe` | `superuser` / `superpassword` | `54329` |
-| `TEST_DATABASE_URL` | `postgres_test` | `vibe_test` | `superuser` / `superpassword` | `54330` при ручном запуске |
+| `DATABASE_URL` | `postgres` | `dilife` | `superuser` / `superpassword` | `54329` |
+| `TEST_DATABASE_URL` | `postgres_test` | `dilife_test` | `superuser` / `superpassword` | `54330` при ручном запуске |
 
 Это публичные локальные значения из [инструкции PostgreSQL](../docs/LOCAL_DATABASE.md). Автоматические тесты могут выбрать порт по репозиторию, чтобы копии проекта не конфликтовали.
 

@@ -85,7 +85,7 @@ Each managed run creates a separate `${COMPOSE_PROJECT_NAME}-integration-<run>`.
 
 Two runs from the same checkout get different Compose projects but the same derived port. If the port is occupied, the second run fails without stopping the first. To use another run's managed database, enable skip and supply its test URL.
 
-Integration and Docker smoke require a database name with `_test` by default. A separate variable permits an intentional exception. This protects `vibe` from test writes. See [LOCAL_DATABASE.md](LOCAL_DATABASE.md) for connection and reset instructions.
+Integration and Docker smoke require a database name with `_test` by default. A separate variable permits an intentional exception. This protects `dilife` from test writes. See [LOCAL_DATABASE.md](LOCAL_DATABASE.md) for connection and reset instructions.
 
 Docker smoke creates a separate Compose project and port. It builds the backend and starts it with its own `postgres_test`. It waits for `/health/ready`, checks token authentication with the database, and removes only its own containers, network, and volume.
 
@@ -145,7 +145,7 @@ Use this check for storage changes or an explicit storage audit. It does not rep
 Variables:
 
 ```bash
-TEST_DATABASE_URL="postgresql://superuser:superpassword@localhost:<test-port>/vibe_test?schema=public"
+TEST_DATABASE_URL="postgresql://superuser:superpassword@localhost:<test-port>/dilife_test?schema=public"
 POSTGRES_TEST_PORT=<test-port>
 E2E_BACKEND_PORT=<backend-port>
 E2E_WEB_PORT=<web-port>
@@ -182,7 +182,7 @@ Requirements:
 
 - Java 17+.
 - Xcode and iOS Simulator, or Android Studio and an emulator.
-- An installed Expo development build with `bundleIdentifier/package` set to `com.vibe.app`. Expo Go is not sufficient.
+- An installed Expo development build with `bundleIdentifier/package` set to `com.dilife.app`. Expo Go is not sufficient.
 - A backend with Docker Compose `postgres_test`, reachable through the Metro build's `EXPO_PUBLIC_API_URL`.
 - An `E2E_API_HEALTH_URL` reachable from the computer, for example `http://<LAN_IP>:3000/health`.
 - A reachable Metro server at `MAESTRO_DEV_SERVER_URL`, for example `http://<LAN_IP>:8081`.
@@ -194,7 +194,7 @@ Create `backend/.env` from `backend/.env.example` if it is missing. For a custom
 docker compose version
 docker info
 docker compose --env-file backend/.env up -d postgres_test
-export TEST_DATABASE_URL="postgresql://superuser:superpassword@localhost:54330/vibe_test?schema=public"
+export TEST_DATABASE_URL="postgresql://superuser:superpassword@localhost:54330/dilife_test?schema=public"
 export LAN_IP=<your-machine-lan-ip>
 export BACKEND_PORT=3000
 export METRO_PORT=8081
@@ -232,7 +232,7 @@ Available options:
 
 ```bash
 MAESTRO_DEVICE="iPhone 16 Pro"
-MAESTRO_APP_ID=com.vibe.app
+MAESTRO_APP_ID=com.dilife.app
 MAESTRO_DEV_SERVER_URL=http://<LAN_IP>:8081
 MAESTRO_DEV_CLIENT_SCHEME=exp+mobile
 MAESTRO_MIN_VERSION=2.4.0

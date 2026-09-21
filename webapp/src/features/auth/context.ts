@@ -4,7 +4,7 @@ import type {
   PasswordResetRequest,
   RegisterRequest,
   UserDto,
-} from '@vibe/contracts'
+} from '@dilife/contracts'
 import { createContext } from 'react'
 import type { AuthenticatedTransport } from '@/platform/api'
 

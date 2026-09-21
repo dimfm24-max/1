@@ -1,4 +1,4 @@
-import type { AvatarResponse } from '@vibe/contracts';
+import type { AvatarResponse } from '@dilife/contracts';
 
 import { sendUploadTicket, type UploadSender } from '@/platform/uploads';
 import type { AvatarApiPort } from './api';

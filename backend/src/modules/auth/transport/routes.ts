@@ -16,7 +16,7 @@ import {
   tokenLogoutRequestSchema,
   tokenRefreshRequestSchema,
   tokenRefreshResponseSchema,
-} from '@vibe/contracts'
+} from '@dilife/contracts'
 import { createRoute, OpenAPIHono } from '@hono/zod-openapi'
 import type { Context, MiddlewareHandler } from 'hono'
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie'

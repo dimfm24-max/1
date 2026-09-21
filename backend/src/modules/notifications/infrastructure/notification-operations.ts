@@ -3,7 +3,7 @@ import type {
   LegacyUnregisterPushTokenRequest,
   RegisterPushTokenRequest,
   UnregisterPushTokenRequest,
-} from '@vibe/contracts'
+} from '@dilife/contracts'
 import { createHash, randomUUID, timingSafeEqual } from 'node:crypto'
 
 import {

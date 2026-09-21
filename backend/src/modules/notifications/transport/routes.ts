@@ -5,7 +5,7 @@ import {
   testPushNotificationRequestSchema,
   testPushNotificationResponseSchema,
   unregisterPushTokenRequestSchema,
-} from '@vibe/contracts'
+} from '@dilife/contracts'
 import { createRoute, OpenAPIHono } from '@hono/zod-openapi'
 import type { Context } from 'hono'
 

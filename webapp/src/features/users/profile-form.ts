@@ -1,4 +1,4 @@
-import { updateProfileRequestSchema, type UpdateProfileRequest } from '@vibe/contracts'
+import { updateProfileRequestSchema, type UpdateProfileRequest } from '@dilife/contracts'
 
 import { toValidationErrors, type ValidationErrors } from '@/features/auth'
 

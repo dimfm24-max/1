@@ -1,4 +1,4 @@
-import type { AvatarContentType } from '@vibe/contracts'
+import type { AvatarContentType } from '@dilife/contracts'
 
 import { acquireUserAvatarMutationLock, type DbClient } from '../../../db'
 import type {

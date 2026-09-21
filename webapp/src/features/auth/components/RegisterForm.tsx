@@ -1,6 +1,6 @@
 import { useForm } from '@tanstack/react-form'
 import { Link } from '@tanstack/react-router'
-import { registerRequestSchema, type RegisterRequest } from '@vibe/contracts'
+import { registerRequestSchema, type RegisterRequest } from '@dilife/contracts'
 import { useId, useState } from 'react'
 
 import { Typography } from '@/components/typography'

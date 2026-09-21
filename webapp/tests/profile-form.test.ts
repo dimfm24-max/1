@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { updateProfileRequestSchema, type UserDto } from '@vibe/contracts'
+import { updateProfileRequestSchema, type UserDto } from '@dilife/contracts'
 import { expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'

@@ -35,7 +35,7 @@ describe('drainOptionsFromEnv', () => {
     // Dropping one here would silently ignore an operator's setting: the drain would fall back
     // to its own default and nothing would say so.
     const env = loadEnv({
-      DATABASE_URL: 'postgresql://superuser:superpassword@localhost:54329/vibe',
+      DATABASE_URL: 'postgresql://superuser:superpassword@localhost:54329/dilife',
       JWT_SECRET: '12345678901234567890123456789012',
       TASK_OUTBOX_BATCH_LIMIT: '7',
       TASK_OUTBOX_LEASE_STALE_MS: '90000',
@@ -57,7 +57,7 @@ describe('drainPassCapacity', () => {
     // The password-reset ceiling is sized to this. Smaller and it refuses requests the drain
     // could have delivered on time; larger and a flood carries over from one pass to the next.
     const env = loadEnv({
-      DATABASE_URL: 'postgresql://superuser:superpassword@localhost:54329/vibe',
+      DATABASE_URL: 'postgresql://superuser:superpassword@localhost:54329/dilife',
       JWT_SECRET: '12345678901234567890123456789012',
       TASK_OUTBOX_BATCH_LIMIT: '7',
     })

@@ -42,21 +42,21 @@ if (googleIosUrlScheme) {
 
 module.exports = {
   expo: {
-    name: 'Vibe',
+    name: 'DiLife',
     owner: 'dmitriy12',
     slug: 'vibe',
     version: '1.0.0',
     orientation: 'portrait',
     icon: './assets/images/icon.png',
-    scheme: 'vibe',
+    scheme: 'dilife',
     userInterfaceStyle: 'automatic',
     ios: {
-      bundleIdentifier: 'com.vibe.app',
+      bundleIdentifier: 'com.dilife.app',
       icon: './assets/expo.icon',
       usesAppleSignIn: true,
     },
     android: {
-      package: 'com.vibe.app',
+      package: 'com.dilife.app',
       adaptiveIcon: {
         backgroundColor: '#E6F4FE',
         foregroundImage: './assets/images/android-icon-foreground.png',
