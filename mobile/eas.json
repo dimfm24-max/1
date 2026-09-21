@@ -5,6 +5,7 @@
   },
   "build": {
     "development": {
+      "bun": "1.4.0",
       "developmentClient": true,
       "distribution": "internal",
       "env": {
@@ -12,6 +13,7 @@
       }
     },
     "preview": {
+      "bun": "1.4.0",
       "distribution": "internal",
       "env": {
         "EXPO_PUBLIC_API_URL": "http://192.168.1.104:3000"
@@ -21,6 +23,7 @@
       }
     },
     "production": {
+      "bun": "1.4.0",
       "autoIncrement": true
     }
   },
