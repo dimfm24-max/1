@@ -29,18 +29,6 @@ Before work in an area, read its guide:
 | Test setup and new scenarios | `docs/TESTING.md`. For mobile work, also read the mobile README on the `mobile` branch. |
 | Deployment, cloud services, and storage | `docs/DEPLOYMENT.md`, `infra/README.md`, and the guide for the selected provider or storage system. |
 
-## Initial setup only
-
-<!-- BOOTSTRAP_ONLY_START -->
-For a new project:
-
-- Follow the [setup instructions](README.md#agent-setup-instructions).
-- Before development, complete the `CHECKLIST.md` questionnaire in the user's language. Include all applicable conditional sections.
-- Record decisions in `CHECKLIST.md`, README files, and `docs/`. When you work on the template itself, leave answers blank. Maintain only the capability registry.
-- Follow README to disconnect the template remote and set up Docker, PostgreSQL, and active Expo, EAS, and Maestro tools. Do not configure deferred applications.
-- After setup, remove this entire section and its markers.
-<!-- BOOTSTRAP_ONLY_END -->
-
 ## Git and working files
 
 - Before branch, commit, push, or PR work, check `git remote -v` and `git status --short --branch`.
