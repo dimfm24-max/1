@@ -43,6 +43,7 @@ if (googleIosUrlScheme) {
 module.exports = {
   expo: {
     name: 'Vibe',
+    owner: 'dmitriy12',
     slug: 'vibe',
     version: '1.0.0',
     orientation: 'portrait',
@@ -69,6 +70,11 @@ module.exports = {
       favicon: './assets/images/favicon.png',
     },
     plugins,
+    extra: {
+      eas: {
+        projectId: 'fff81b52-05a7-4ee7-b56d-0d3ea02472af',
+      },
+    },
     experiments: {
       typedRoutes: true,
       reactCompiler: true,
