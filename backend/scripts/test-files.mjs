@@ -18,7 +18,10 @@ import { Glob } from 'bun'
  * affects rather than in a list here.
  */
 export function backendTestFiles(backendRoot) {
-  const all = [...new Glob('{src,scripts}/**/*.test.{ts,mjs}').scanSync(backendRoot)].sort()
+  // Glob yields the platform separator; the runners and their checks address files with '/'.
+  const all = [...new Glob('{src,scripts}/**/*.test.{ts,mjs}').scanSync(backendRoot)]
+    .map((file) => file.replaceAll('\\', '/'))
+    .sort()
 
   const parked = all.filter((file) => isParked(join(backendRoot, file)))
   const active = all.filter((file) => !parked.includes(file))
