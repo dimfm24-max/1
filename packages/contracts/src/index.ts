@@ -1,6 +1,5 @@
 export * from './auth'
 export * from './errors'
-export * from './iap'
 export * from './notifications'
 export * from './uploads'
 export * from './users'

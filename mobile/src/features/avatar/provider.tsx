@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import type { Avatar, AvatarResponse } from '@web-app-demo/contracts';
+import type { Avatar, AvatarResponse } from '@vibe/contracts';
 
 import { useAuth } from '@/features/auth';
 import type { UploadSender } from '@/platform/uploads';
@@ -90,7 +90,7 @@ export function AvatarProvider({
   const userId = auth.user?.id ?? null;
 
   // A new account must not inherit the previous one's message or spinner. The query is keyed by
-  // user so the photo itself is already safe, but this state is not - billing resets the same way.
+  // user so the photo itself is already safe, but this state is not.
   useEffect(() => {
     setError(null);
     setNotice(null);
@@ -113,7 +113,7 @@ export function AvatarProvider({
     // launch, and neither is visible to this provider: the query succeeded, only the image
     // loader failed, so `reload` is not offered for them. Accepted because the photo is
     // decorative and every action stays correct. A product that needs the picture itself to
-    // recover should refetch on foreground, the way billing's `AppState` listener does, rather
+    // recover should refetch on foreground, rather
     // than retry from the image's own error - which loops when storage is what is broken.
     staleTime: 60_000,
   });

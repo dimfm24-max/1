@@ -16,8 +16,6 @@ export const passwordSchema = z
 
 export const userRoleSchema = z.enum(['user', 'admin'])
 
-// The user contract deliberately carries no subscription: billing is an optional capability,
-// and clients that need it read `GET /api/iap/entitlement` through their billing feature.
 export const userSchema = z.object({
   id: z.string(),
   email: emailSchema,

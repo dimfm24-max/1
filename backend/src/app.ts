@@ -14,12 +14,6 @@ import { errorResponse, handleError, validationErrorHook } from './http/errors'
 import { createReadinessProbe } from './http/readiness'
 import { createFixedWindowRateLimit, createIngressSecurity } from './http/security'
 import { createAuthModule, type AuthHttpEnv } from './modules/auth'
-// Subscriptions are turned off; see docs/IAP.md before uncommenting.
-// import {
-//   createBillingModule,
-//   type AppStoreSubscriptionVerifier,
-//   type GooglePlaySubscriptionVerifier,
-// } from './modules/billing'
 import { createNotificationsModule } from './modules/notifications'
 import { createUploadsModule } from './modules/uploads'
 import { createUsersModule } from './modules/users'
@@ -35,9 +29,6 @@ type CreateAppOptions = {
   backgroundTasks?: TaskDeferrer
   emailDelivery?: EmailDelivery
   env: AppEnv
-  // Uncomment together with the billing module:
-  // appStoreIapVerifier?: AppStoreSubscriptionVerifier
-  // googlePlayIapVerifier?: GooglePlaySubscriptionVerifier
   prisma: DbClient
   /**
    * Storage is never absent: the filesystem driver always works. Injectable so tests can point
@@ -46,26 +37,13 @@ type CreateAppOptions = {
   privateStorage?: PrivateStorageRuntime
 }
 
-// Defaults for the App Store webhook ingress; uncomment with the billing routes.
-// const defaultWebhookBodyLimitBytes = 256 * 1024
-// const defaultWebhookRateLimitMax = 600
-// const defaultWebhookRateLimitWindowSeconds = 60
-
 export function createApp({
-  // appStoreIapVerifier,
   backgroundTasks = createBackgroundTasks(),
   emailDelivery = disabledEmailDelivery,
   env,
-  // googlePlayIapVerifier,
   prisma,
   privateStorage,
 }: CreateAppOptions) {
-  // const billing = createBillingModule({
-  //   appStoreVerifier: appStoreIapVerifier,
-  //   db: prisma,
-  //   env,
-  //   googlePlayVerifier: googlePlayIapVerifier,
-  // })
   const storage = privateStorage ?? createPrivateStorage(env)
   const notifications = createNotificationsModule({ db: prisma, env })
   const auth = createAuthModule({
@@ -148,30 +126,9 @@ export function createApp({
     app.use('/api/admin/*', middleware)
     app.use('/api/uploads/*', middleware)
   }
-  // Ingress budget for the subscription routes, uncomment together with them. Without a `store`
-  // they count in process memory whatever RATE_LIMIT_STORE says; add their policies to
-  // RateLimitPolicy (rate-limit/port.ts) and pass `store: rateLimitStore(...)` when enabling.
-  // for (const middleware of createIngressSecurity({
-  //   ...publicWriteSecurity,
-  //   bodyLimitBytes: env.IAP_BODY_LIMIT_BYTES,
-  //   rateLimitMax: env.IAP_RATE_LIMIT_MAX,
-  //   rateLimitWindowSeconds: env.IAP_RATE_LIMIT_WINDOW_SECONDS,
-  // })) {
-  //   app.use('/api/iap/*', middleware)
-  // }
-  // // The only webhook producer today is the App Store, so this group goes with billing.
-  // for (const middleware of createIngressSecurity({
-  //   ...publicWriteSecurity,
-  //   bodyLimitBytes: env.WEBHOOK_BODY_LIMIT_BYTES ?? defaultWebhookBodyLimitBytes,
-  //   rateLimitMax: env.WEBHOOK_RATE_LIMIT_MAX ?? defaultWebhookRateLimitMax,
-  //   rateLimitWindowSeconds:
-  //     env.WEBHOOK_RATE_LIMIT_WINDOW_SECONDS ?? defaultWebhookRateLimitWindowSeconds,
-  // })) {
-  //   app.use('/api/webhooks/*', middleware)
-  // }
   app.get('/', (c) => {
     return c.json({
-      name: 'web_app_demo backend',
+      name: 'vibe backend',
       status: 'ok',
     })
   })
@@ -200,14 +157,11 @@ export function createApp({
       ? c.json({ status: 'ok' }, 200)
       : c.json({ status: 'unavailable' }, 503)
   })
-
   app.route('/api/auth', auth.routes)
   app.route('/api/users', users.userRoutes)
   app.route('/api/admin', users.adminRoutes)
-  // app.route('/api/iap', billing.createRoutes(auth.authenticateAccessToken))
   app.route('/api/notifications', notifications.createRoutes(auth.authenticateAccessToken))
   app.route('/api/uploads', uploads.routes)
-  // app.route('/api/webhooks', billing.webhookRoutes)
 
   // Only the filesystem driver needs the backend to serve the URLs it signs. With an S3 driver
   // the browser uploads straight to the bucket and there is nothing to mount here.
@@ -217,7 +171,7 @@ export function createApp({
 
   app.doc('/openapi.json', {
     openapi: '3.0.0',
-    info: { title: 'web_app_demo API', version: '1.0.0' },
+    info: { title: 'vibe API', version: '1.0.0' },
   })
   app.notFound((c) => c.json(errorResponse('NOT_FOUND', 'Route not found'), 404))
   app.onError(handleError)

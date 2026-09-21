@@ -1,10 +1,10 @@
-# Vibe Coding Template
+# Vibe
 
 <p align="center">
-  <img src="docs/assets/vibe_tmpl_schema.png" alt="Vibe Coding Template architecture diagram" width="100%">
+  <img src="docs/assets/vibe_tmpl_schema.png" alt="Vibe architecture diagram" width="100%">
 </p>
 
-A web and mobile product template with a shared backend. The `mobile` branch adds Expo and optional subscriptions, push notifications, and social sign-in to `master`.
+A web and mobile product with a shared backend: Bun/Hono API, React browser app, and an Expo application.
 
 ## Prompt to copy to your agent
 
@@ -30,7 +30,7 @@ Communicate in my language.
 
 ### Rename the project
 
-Search with `rg -n "web_app_demo|web-app-demo|vibecoding-template|Vibe Coding Template"`. Check packages, databases, cookies, Docker and Compose, images, architecture-check aliases, and `webapp/index.html`. Make targeted edits. Regenerate `bun.lock` with the pinned Bun version. Install dependencies. Check types, architecture, and backend integration for the selected applications.
+Search with `rg -n "vibe|vibe|vibe|Vibe"`. Check packages, databases, cookies, Docker and Compose, images, architecture-check aliases, and `webapp/index.html`. Make targeted edits. Regenerate `bun.lock` with the pinned Bun version. Install dependencies. Check types, architecture, and backend integration for the selected applications.
 
 ### Hosting and deployment
 
@@ -51,7 +51,7 @@ Define resource sizes and composition in Terraform. Document operating changes i
 | [backend](backend/README.md) | Bun/Hono, Prisma/PostgreSQL, Zod, JWT, OpenAPI |
 | [webapp](webapp/README.md) | React/Vite, TanStack; CSR with registration and sign-in |
 | [website](website/README.md) | Astro; public pages, content, and storefront |
-| [mobile](mobile/README.md) | Expo Router, token authentication, files, push notifications, social sign-in, IAP, Maestro |
+| [mobile](mobile/README.md) | Expo Router, token authentication, files, push notifications, social sign-in, Maestro |
 | [packages/contracts](packages/contracts/README.md) | Shared Zod schemas and TypeScript API types |
 
 ## Choose between `webapp` and `website`
@@ -61,7 +61,7 @@ Define resource sizes and composition in Terraform. Document operating changes i
 
 A marketplace usually needs both. Do not move SEO into CSR or the entire account area into Astro. See [ARCHITECTURE.md](docs/ARCHITECTURE.md#клиенты) for framework selection.
 
-Before work on data, carts, orders, or payments, read [WEB_SURFACES.md](docs/WEB_SURFACES.md). The authenticated webapp and backend own the single browser checkout. Website can pass an anonymous selection. Backend is the data source. Mobile has separate native payments. Store subscriptions are disabled. Add other payment methods according to product needs and platform rules.
+Before work on data, carts, orders, or payments, read [WEB_SURFACES.md](docs/WEB_SURFACES.md). The authenticated webapp and backend own the single browser checkout. Website can pass an anonymous selection. Backend is the data source. Mobile has separate native payments. Store subscriptions were removed during setup. Add payment methods according to product needs and platform rules.
 
 ## Quick start
 
@@ -94,7 +94,7 @@ The seed uses `DEV_SEED_ADMIN_*` and `DEV_SEED_USER_*` from `backend/.env`. Thes
 | Administrator | `admin@example.com` | `local-admin-password` | `/admin` |
 | User | `user@example.com` | `local-user-password` | `/app` |
 
-The seed is safe to repeat. It permits only loopback databases and rejects `NODE_ENV=production`. Mobile does not require a subscription for sign-in or the components screen. The seed does not grant premium access. Mobile has no admin interface. Deployment uses `db:deploy` with `ADMIN_SEED_*`, not the local seed.
+The seed is safe to repeat. It permits only loopback databases and rejects `NODE_ENV=production`. Mobile has no admin interface. Deployment uses `db:deploy` with `ADMIN_SEED_*`, not the local seed.
 
 Start the required applications in separate terminals:
 
@@ -125,7 +125,7 @@ The guides contain details and official sources:
 | Schedules, jobs, and outbox | [BACKGROUND_JOBS.md](docs/BACKGROUND_JOBS.md) |
 | PostgreSQL, test databases, and resets | [LOCAL_DATABASE.md](docs/LOCAL_DATABASE.md) |
 | Email and files | [EMAIL.md](docs/EMAIL.md), [STORAGE.md](docs/STORAGE.md) |
-| Apple/Google sign-in and store subscriptions | [SOCIAL_AUTH.md](docs/SOCIAL_AUTH.md), [IAP.md](docs/IAP.md) |
+| Apple/Google sign-in | [SOCIAL_AUTH.md](docs/SOCIAL_AUTH.md) |
 
 ## License
 

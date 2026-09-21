@@ -13,7 +13,6 @@ module.exports = defineConfig([
       "src/components/ui/carousel.tsx",
       "src/components/ui/native-select.tsx",
       "src/components/ui/select.tsx",
-      "src/features/billing/provider.tsx",
     ],
     rules: {
       "react-hooks/refs": "off",
@@ -25,7 +24,6 @@ module.exports = defineConfig([
       "src/features/auth/components/social-auth-buttons.tsx",
       "src/features/auth/provider.tsx",
       "src/features/avatar/provider.tsx",
-      "src/features/billing/provider.tsx",
       "src/features/notifications/provider.tsx",
     ],
     rules: {

@@ -3,7 +3,7 @@ import type {
   UpdateProfileRequest,
   UpdateUserRoleRequest,
   UserDto,
-} from '@web-app-demo/contracts'
+} from '@vibe/contracts'
 
 import type { AuthenticatedPrincipal } from '../../auth'
 import type {

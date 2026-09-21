@@ -5,7 +5,7 @@ import {
   type AdminUserSummary,
   type UserDto,
   type UserRole,
-} from '@web-app-demo/contracts'
+} from '@vibe/contracts'
 import { useState, type FormEvent } from 'react'
 
 import { DataTableFrame } from '@/components/dashboard'

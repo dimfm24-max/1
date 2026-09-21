@@ -2,7 +2,6 @@ import { afterEach, expect, test } from 'bun:test';
 
 import { AuthApi } from '../src/features/auth/api';
 import { createBrowserAuthCoordinator } from '../src/features/auth/browser-auth-coordinator';
-import { BillingApi } from '../src/features/billing/api';
 import { NotificationsApi } from '../src/features/notifications/api';
 import { ApiTransport } from '../src/platform/api';
 import { authTransportForPlatform } from '../src/composition/auth-transport';
@@ -457,107 +456,6 @@ test('mobile auth API exchanges social auth provider tokens', async () => {
   ]);
 });
 
-test('mobile billing API calls entitlement, ingest, and reconcile endpoints with auth', async () => {
-  const calls: Array<{ path: string; authorization: string | null; body: unknown }> = [];
-
-  globalThis.fetch = async (input, init) => {
-    const path = new URL(String(input)).pathname;
-    const headers = new Headers(init?.headers);
-    const body = init?.body ? JSON.parse(String(init.body)) : undefined;
-    calls.push({ path, authorization: headers.get('Authorization'), body });
-
-    if (path === '/api/iap/entitlement') {
-      return json({ subscription: inactiveSubscription }, 200);
-    }
-
-    if (path === '/api/iap/app-store/transactions') {
-      return json({ subscription: { ...inactiveSubscription, state: 'active', isActive: true } }, 200);
-    }
-
-    if (path === '/api/iap/app-store/offer-code-redemption') {
-      return json({ token: 'offer-code-redemption-token' }, 200);
-    }
-
-    if (path === '/api/iap/app-store/reconcile') {
-      return json({ subscription: inactiveSubscription }, 200);
-    }
-
-    if (path === '/api/iap/google-play/transactions') {
-      return json({ subscription: { ...inactiveSubscription, platform: 'android', state: 'active', isActive: true } }, 200);
-    }
-
-    if (path === '/api/iap/google-play/reconcile') {
-      return json({ subscription: inactiveSubscription }, 200);
-    }
-
-    return json({ error: { code: 'NOT_FOUND', message: 'Unexpected request' } }, 404);
-  };
-
-  const { billing: client } = createTestApis({
-    getAccessToken: () => 'access-token',
-    setAccessToken: () => undefined,
-    getRefreshToken: async () => refreshToken,
-    setRefreshToken: async () => undefined,
-    clearRefreshToken: async () => undefined,
-  });
-
-  await expect(client.entitlement()).resolves.toEqual({ subscription: inactiveSubscription });
-  await expect(
-    client.ingestAppStoreTransaction({ signedTransactionInfo: 'signed-transaction' }),
-  ).resolves.toMatchObject({ subscription: { isActive: true } });
-  await expect(client.createAppStoreOfferCodeRedemption()).resolves.toEqual({
-    token: 'offer-code-redemption-token',
-  });
-  await expect(
-    client.reconcileAppStoreTransactions({ signedTransactions: ['signed-transaction'] }),
-  ).resolves.toEqual({ subscription: inactiveSubscription });
-  await expect(
-    client.ingestGooglePlayTransaction({
-      basePlanId: 'monthly',
-      productId: 'premium',
-      purchaseToken: 'purchase-token',
-    }),
-  ).resolves.toMatchObject({ subscription: { isActive: true, platform: 'android' } });
-  await expect(
-    client.reconcileGooglePlayTransactions({
-      purchases: [{ productId: 'premium', purchaseToken: 'purchase-token' }],
-    }),
-  ).resolves.toEqual({ subscription: inactiveSubscription });
-
-  expect(calls).toEqual([
-    {
-      path: '/api/iap/entitlement',
-      authorization: 'Bearer access-token',
-      body: undefined,
-    },
-    {
-      path: '/api/iap/app-store/transactions',
-      authorization: 'Bearer access-token',
-      body: { signedTransactionInfo: 'signed-transaction' },
-    },
-    {
-      path: '/api/iap/app-store/offer-code-redemption',
-      authorization: 'Bearer access-token',
-      body: undefined,
-    },
-    {
-      path: '/api/iap/app-store/reconcile',
-      authorization: 'Bearer access-token',
-      body: { signedTransactions: ['signed-transaction'] },
-    },
-    {
-      path: '/api/iap/google-play/transactions',
-      authorization: 'Bearer access-token',
-      body: { basePlanId: 'monthly', productId: 'premium', purchaseToken: 'purchase-token' },
-    },
-    {
-      path: '/api/iap/google-play/reconcile',
-      authorization: 'Bearer access-token',
-      body: { purchases: [{ productId: 'premium', purchaseToken: 'purchase-token' }] },
-    },
-  ]);
-});
-
 test('mobile notifications API registers, unregisters, and sends test pushes with auth', async () => {
   const calls: Array<{ path: string; authorization: string | null; body: unknown }> = [];
   const installationId = '018fd4f2-1f3a-7c88-bc49-333333333333';
@@ -832,7 +730,6 @@ function createTestApis(options: {
   }, authTransport);
   return {
     auth,
-    billing: new BillingApi(transport),
     notifications: new NotificationsApi(transport),
   };
 }

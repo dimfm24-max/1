@@ -465,42 +465,11 @@ test('bottom navigation item exposes active and disabled tab state', async () =>
   await act(async () => root.unmount());
 });
 
-test('profile controls reflect store connection and logout progress', async () => {
-  const { SubscriptionSummary } =
-    await import('../src/features/billing/components/subscription-summary');
+test('profile controls reflect logout progress', async () => {
   const { SessionControls } =
     await import('../src/features/auth/components/session-controls');
   const container = fakeDocument.createElement('div');
   const root = createRoot(container);
-  const subscription = {
-    entitlement: 'premium' as const,
-    expiresAt: '2026-08-20T12:00:00.000Z',
-    isActive: true,
-    originalTransactionId: 'original-1',
-    platform: 'ios' as const,
-    productId: 'premium.monthly',
-    state: 'active' as const,
-    transactionId: 'transaction-1',
-    updatedAt: '2026-07-20T12:00:00.000Z',
-    willAutoRenew: true,
-  };
-
-  await renderAndFlush(
-    root,
-    <SubscriptionSummary
-      error={null}
-      isConnected={false}
-      isManaging={false}
-      isSupported
-      onManage={() => undefined}
-      subscription={subscription}
-    />,
-  );
-
-  expect(
-    findByTestID(container, 'profile.manage-subscription-button')?.attributes
-      .disabled,
-  ).toBe('');
 
   await renderAndFlush(
     root,
@@ -514,166 +483,6 @@ test('profile controls reflect store connection and logout progress', async () =
   await act(async () => root.unmount());
 });
 
-test('subscription summary separates an unsupported store, a failed read, and a pending one', async () => {
-  const { SubscriptionSummary } =
-    await import('../src/features/billing/components/subscription-summary');
-  const container = fakeDocument.createElement('div');
-  const root = createRoot(container);
-
-  // Without a snapshot the card is the only thing the profile can say about billing, so each
-  // reason has to read differently: a store-less build is not a failure, and neither is loading.
-  await renderAndFlush(
-    root,
-    <SubscriptionSummary
-      error={null}
-      isConnected={false}
-      isManaging={false}
-      isSupported={false}
-      onManage={() => undefined}
-      subscription={null}
-    />,
-  );
-
-  expect(container.textContent).toContain('only available in the iOS and Android app');
-
-  await renderAndFlush(
-    root,
-    <SubscriptionSummary
-      error="App Store is unavailable right now."
-      isConnected={false}
-      isManaging={false}
-      isSupported
-      onManage={() => undefined}
-      subscription={null}
-    />,
-  );
-
-  expect(container.textContent).toContain('App Store is unavailable right now.');
-
-  await renderAndFlush(
-    root,
-    <SubscriptionSummary
-      error={null}
-      isConnected
-      isManaging={false}
-      isSupported
-      onManage={() => undefined}
-      subscription={null}
-    />,
-  );
-
-  const pending = container.textContent;
-
-  expect(pending).toContain('Checking your subscription');
-  expect(pending).not.toContain('only available in the iOS and Android app');
-  expect(findByTestID(container, 'profile.manage-subscription-button')).toBeNull();
-
-  await act(async () => root.unmount());
-});
-
-test('paywall actions preserve purchase, restore, and platform availability states', async () => {
-  const { PaywallActions } =
-    await import('../src/features/billing/components/paywall-components');
-  const container = fakeDocument.createElement('div');
-  const root = createRoot(container);
-
-  await renderAndFlush(
-    root,
-    <PaywallActions
-      canRestore={false}
-      isPurchasing={false}
-      isRedeemingOfferCode={false}
-      isRestoring={false}
-      isSyncing={false}
-      onPurchase={() => undefined}
-      onRedeemOfferCode={() => undefined}
-      onRestore={() => undefined}
-      platform="ios"
-      selectedPlanPrice={null}
-    />,
-  );
-
-  expect(
-    findByTestID(container, 'paywall.purchase-button')?.attributes.disabled,
-  ).toBe('');
-  expect(
-    findByTestID(container, 'paywall.restore-button')?.attributes.disabled,
-  ).toBe('');
-  expect(
-    findByTestID(container, 'paywall.redeem-offer-code-button')?.attributes
-      .disabled,
-  ).toBe('');
-
-  await renderAndFlush(
-    root,
-    <PaywallActions
-      canRestore
-      isPurchasing={false}
-      isRedeemingOfferCode={false}
-      isRestoring={false}
-      isSyncing={false}
-      onPurchase={() => undefined}
-      onRedeemOfferCode={() => undefined}
-      onRestore={() => undefined}
-      platform="android"
-      selectedPlanPrice="$9.99"
-    />,
-  );
-
-  expect(
-    findByTestID(container, 'paywall.purchase-button')?.attributes.disabled,
-  ).toBeUndefined();
-  expect(
-    findByTestID(container, 'paywall.restore-button')?.attributes.disabled,
-  ).toBeUndefined();
-  expect(
-    findByTestID(container, 'paywall.redeem-offer-code-button'),
-  ).toBeNull();
-
-  await act(async () => root.unmount());
-});
-
-test('paywall plan selector exposes one labelled radio group and checked plan', async () => {
-  const { PaywallPlanSelector } =
-    await import('../src/features/billing/components/paywall-components');
-  const container = fakeDocument.createElement('div');
-  const root = createRoot(container);
-
-  await renderAndFlush(
-    root,
-    <PaywallPlanSelector
-      isConnecting={false}
-      isLoading={false}
-      plans={[
-        {
-          description: 'Billed monthly',
-          displayName: 'Monthly',
-          displayPrice: '$9.99',
-          id: 'monthly',
-          introOfferLabel: null,
-          productId: 'premium.monthly',
-        },
-      ]}
-      selectedPlanId="monthly"
-      storeName="App Store"
-      onSelect={() => undefined}
-    />,
-  );
-
-  const radioGroup = findByTestID(container, 'paywall.plan-group');
-  const selectedPlan = findByTestID(
-    container,
-    'paywall.plan-option.monthly',
-  );
-
-  expect(radioGroup?.attributes.role).toBe('radiogroup');
-  expect(radioGroup?.attributes['aria-label']).toBe('Choose a subscription plan');
-  expect(selectedPlan?.attributes.role).toBe('radio');
-  expect(selectedPlan?.attributes['aria-checked']).toBe('true');
-
-  await act(async () => root.unmount());
-});
-
 test('wide dashboard navigation exposes the active destination as the current page', async () => {
   const { NavigationRail, NavigationRailItem } =
     await import('../src/components/dashboard/NavigationRail');
@@ -682,7 +491,7 @@ test('wide dashboard navigation exposes the active destination as the current pa
 
   await renderAndFlush(
     root,
-    <NavigationRail title="web_app_demo">
+    <NavigationRail title="vibe">
       <NavigationRailItem
         icon={{ ios: 'square.grid.2x2.fill', android: 'view_module', web: 'view_module' }}
         isActive

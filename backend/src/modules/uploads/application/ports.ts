@@ -1,4 +1,4 @@
-import type { AvatarContentType } from '@web-app-demo/contracts'
+import type { AvatarContentType } from '@vibe/contracts'
 
 import type { PrivateStorage } from '../../../storage/port'
 

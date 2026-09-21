@@ -11,8 +11,7 @@ import { UploadTransferError } from '@/platform/uploads';
  * Only two kinds of error carry text meant for a person: the backend's, and the transfer
  * protocol's. Anything else reaching here is an internal failure - a schema validation dump, a
  * native module's diagnostic - and echoing its `message` would put a JSON blob or a stack
- * fragment on screen in place of an instruction. Those get a fixed sentence instead, the same
- * way `iapErrorMessage` guards the billing surface.
+ * fragment on screen in place of an instruction. Those get a fixed sentence instead.
  */
 export function avatarUploadErrorMessage(error: unknown) {
   if (error instanceof UploadTransferError) return error.message;

@@ -10,7 +10,7 @@
 
 ## Стек
 
-React, TypeScript, Vite, Tailwind CSS, shadcn/ui, Radix UI, TanStack Query/Form/Router, Zod из `@web-app-demo/contracts`, shadcn CLI, Playwright и ESLint.
+React, TypeScript, Vite, Tailwind CSS, shadcn/ui, Radix UI, TanStack Query/Form/Router, Zod из `@vibe/contracts`, shadcn CLI, Playwright и ESLint.
 
 ## Команды
 
@@ -110,7 +110,7 @@ bun run --cwd webapp ui:add -- <component>
 
 Playwright проверяет важные успешные сценарии через настоящий интерфейс и backend по [правилам тестирования](../AGENTS.md#testing-and-verification). Запускай браузер только по явному запросу.
 
-Скрипт запускает `postgres_test`, применяет миграции к `web_app_demo_test`, создаёт E2E-администратора и запускает backend с `DATABASE_URL` из `TEST_DATABASE_URL`. Затем запускает Vite. После прогона он по умолчанию удаляет том тестовой БД.
+Скрипт запускает `postgres_test`, применяет миграции к `vibe_test`, создаёт E2E-администратора и запускает backend с `DATABASE_URL` из `TEST_DATABASE_URL`. Затем запускает Vite. После прогона он по умолчанию удаляет том тестовой БД.
 
 Первый запуск:
 

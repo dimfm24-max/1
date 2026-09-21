@@ -28,7 +28,7 @@ const roots = [
 ]
 
 const testDirectory = mkdtempSync(
-  resolve(tmpdir(), 'vibecoding-terraform-test-'),
+  resolve(tmpdir(), 'vibe-terraform-test-'),
 )
 const pluginCacheDirectory = resolve(testDirectory, 'plugin-cache')
 const immediateHolderScript = resolve(testDirectory, 'immediate-holder.mjs')

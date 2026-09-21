@@ -1,5 +1,5 @@
 import { Outlet, useLocation, useRouter, useSearch } from '@tanstack/react-router'
-import type { UserDto, UserRole } from '@web-app-demo/contracts'
+import type { UserDto, UserRole } from '@vibe/contracts'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 
 import {

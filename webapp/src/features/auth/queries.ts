@@ -11,7 +11,7 @@ import type {
   MeResponse,
   PasswordResetConfirmRequest,
   RegisterRequest,
-} from '@web-app-demo/contracts'
+} from '@vibe/contracts'
 
 import type { AuthApi } from './api'
 

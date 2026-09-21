@@ -1,9 +1,9 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
 
 const componentPattern = /^[A-Za-z0-9_-]{43}$/
-const familyPurpose = 'web-app-demo:refresh-family:v1\0'
-const familyTagPurpose = 'web-app-demo:refresh-family-tag:v1\0'
-const rotationPurpose = 'web-app-demo:refresh-rotation:v1\0'
+const familyPurpose = 'vibe:refresh-family:v1\0'
+const familyTagPurpose = 'vibe:refresh-family-tag:v1\0'
+const rotationPurpose = 'vibe:refresh-rotation:v1\0'
 
 export function createRefreshToken(secret: string) {
   return refreshTokenFor(

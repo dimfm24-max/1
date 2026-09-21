@@ -2,7 +2,7 @@ import {
   ADMIN_USERS_MAX_PAGE,
   type AdminUserSummary,
   type UpdateUserRoleResponse,
-} from '@web-app-demo/contracts'
+} from '@vibe/contracts'
 
 type AdminUsersQueryState = {
   isError: boolean

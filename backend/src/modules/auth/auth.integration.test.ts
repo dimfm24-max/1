@@ -375,7 +375,7 @@ maybeDescribe('auth API integration', () => {
     expect(confirmations.map(({ status }) => status).sort()).toEqual([204, 400])
     const successfulConfirm = confirmations.find(({ status }) => status === 204)!
     const rejectedConfirm = confirmations.find(({ status }) => status === 400)!
-    expect(successfulConfirm.headers.get('set-cookie')).toContain('web_app_demo_refresh=')
+    expect(successfulConfirm.headers.get('set-cookie')).toContain('vibe_refresh=')
     expect(successfulConfirm.headers.get('set-cookie')).toContain('Max-Age=0')
     expect((await rejectedConfirm.json()).error.code).toBe('AUTH_PASSWORD_RESET_INVALID')
     await drain()
@@ -668,7 +668,7 @@ maybeDescribe('auth API integration', () => {
 
     expect(register.status).toBe(201)
     expect(registerBody.refreshToken).toBeUndefined()
-    expect(setCookie).toContain('web_app_demo_refresh=')
+    expect(setCookie).toContain('vibe_refresh=')
     expect(setCookie).toContain('HttpOnly')
     expect(setCookie).toContain('SameSite=Lax')
 
@@ -702,7 +702,7 @@ maybeDescribe('auth API integration', () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Cookie: `web_app_demo_refresh=${refreshToken}`,
+        Cookie: `vibe_refresh=${refreshToken}`,
       },
       body: JSON.stringify({}),
     })
@@ -736,7 +736,7 @@ maybeDescribe('auth API integration', () => {
     expect(register.headers.get('access-control-allow-origin')).toBe('https://web.example.com')
     expect(register.headers.get('access-control-allow-credentials')).toBe('true')
     expect(registerBody.refreshToken).toBeUndefined()
-    expect(setCookie).toContain('web_app_demo_refresh=')
+    expect(setCookie).toContain('vibe_refresh=')
     expect(setCookie).toContain('HttpOnly')
     expect(setCookie).toContain('Secure')
     expect(setCookie).toContain('SameSite=None')

@@ -570,8 +570,6 @@ maybeDescribe('users and admin API integration', () => {
       expect(body.user.role).toBe(role)
     }
 
-    // Uncomment with the billing tables (docs/IAP.md): the demo seed must grant no entitlement.
-    // expect(await prisma.subscriptionEntitlement.count()).toBe(0)
   })
 
   test('concurrent first development seeds converge on one admin and user', async () => {

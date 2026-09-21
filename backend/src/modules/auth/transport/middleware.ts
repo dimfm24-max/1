@@ -1,4 +1,4 @@
-import type { UserRole } from '@web-app-demo/contracts'
+import type { UserRole } from '@vibe/contracts'
 import { createMiddleware } from 'hono/factory'
 
 import { AppError } from '../../../http/errors'

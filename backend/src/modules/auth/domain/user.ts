@@ -1,4 +1,4 @@
-import type { UserDto, UserRole } from '@web-app-demo/contracts'
+import type { UserDto, UserRole } from '@vibe/contracts'
 
 export type AuthUserRecord = {
   id: string

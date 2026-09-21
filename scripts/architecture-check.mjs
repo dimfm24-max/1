@@ -13,7 +13,7 @@ const sourceRoots = [
 const sourceExtension = /\.(?:[cm]?[jt]sx?)$/
 const importPattern = /(?:^|\n)\s*(?:import|export)\s+(?:type\s+)?(?:[\s\S]*?\s+from\s+)?['"]([^'"]+)['"]/g
 const runtimeModulePattern = /\b(?:import|require)\s*\(\s*['"]([^'"]+)['"]\s*\)/g
-const innerLayerAllowedPackages = ['@web-app-demo/contracts', 'zod']
+const innerLayerAllowedPackages = ['@vibe/contracts', 'zod']
 const contractAllowedPackages = ['zod']
 const transportForbiddenPackages = ['@prisma/', '@aws-sdk/', 'jose', 'pg']
 
@@ -298,7 +298,7 @@ function resolveRepositoryImport(importer, specifier) {
     return `${workspace}/src/${specifier.slice(2)}`
   }
 
-  const workspaceAlias = specifier.match(/^@(web-app-demo)\/(backend|contracts|webapp|website|mobile)(?:\/(.*))?$/)
+  const workspaceAlias = specifier.match(/^@(vibe)\/(backend|contracts|webapp|website|mobile)(?:\/(.*))?$/)
   if (workspaceAlias) {
     return `${workspaceAlias[2]}/src/${workspaceAlias[3] ?? 'index'}`
   }

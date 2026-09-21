@@ -1,4 +1,4 @@
-import { apiErrorSchema } from '@web-app-demo/contracts';
+import { apiErrorSchema } from '@vibe/contracts';
 import type { z } from 'zod';
 
 import { SessionGenerationChangedError } from '@/platform/session';

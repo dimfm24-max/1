@@ -13,8 +13,6 @@ import {
   setStoredRefreshToken,
 } from '@/features/auth';
 import { AvatarProvider, createExpoAvatarPicker } from '@/features/avatar';
-// Subscriptions are turned off; see docs/IAP.md before uncommenting.
-// import { IapProvider } from '@/features/billing';
 import {
   PushNotificationsProvider,
   PushRegistrationCoordinator,
@@ -70,7 +68,6 @@ export function AppProviders({ children }: PropsWithChildren) {
         logoutSupport={logoutSupport}
         session={session}
       >
-        {/* Wrap this in <IapProvider api={apis.billing}> when turning subscriptions on. */}
         <AvatarProvider api={apis.avatar} picker={avatarPicker} send={uploads.send}>
           <PushNotificationsProvider
             api={apis.notifications}

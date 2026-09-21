@@ -230,8 +230,6 @@ describe('runBackgroundJob', () => {
     }])
   })
 
-  // The billing reconcile task lived here commented out; docs/IAP.md says what to switch on.
-
   test('maintenance runs session cleanup, push-token upkeep, and terminal redaction in one task', async () => {
     const calls = {
       cleanup: 0,
@@ -243,9 +241,6 @@ describe('runBackgroundJob', () => {
     const log = spyOn(console, 'log').mockImplementation(() => {})
     const maintenanceRuntime = {
       env: {
-        // Uncomment with the billing task to cover the Google Play branch (docs/IAP.md):
-        // APPLE_IAP_ENVIRONMENT: 'Sandbox',
-        // GOOGLE_PLAY_PACKAGE_NAME: 'com.example.app',
         SESSION_ABSOLUTE_TTL_DAYS: 90,
         SESSION_RETENTION_DAYS: 7,
       },
@@ -295,8 +290,6 @@ describe('runBackgroundJob', () => {
         new Date('2026-07-17T10:00:00.000Z'),
       )
 
-      // Google Play reconciliation belongs to the parked billing task; everything asserted here
-      // is capability-neutral upkeep that runs in every project.
       expect(calls).toEqual({
         cleanup: 1,
         passwordResetCleanup: 1,

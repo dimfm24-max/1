@@ -6,7 +6,7 @@ import {
   updateUserRoleResponseSchema,
   type AdminUsersQuery,
   type UpdateUserRoleRequest,
-} from '@web-app-demo/contracts'
+} from '@vibe/contracts'
 
 import type { AuthenticatedTransport } from '@/platform/api'
 

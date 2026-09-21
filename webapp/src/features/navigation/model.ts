@@ -1,4 +1,4 @@
-import type { UserRole } from '@web-app-demo/contracts'
+import type { UserRole } from '@vibe/contracts'
 
 // Every path pattern registered under the role's workspace layout in `src/routes.tsx`, in TanStack
 // syntax (`$param` segments). This is the return-path allow-list: a protected route survives the

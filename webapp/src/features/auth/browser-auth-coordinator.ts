@@ -8,7 +8,7 @@ type BrowserLockManager = {
   ) => Promise<T>
 }
 
-const browserAuthLockName = 'web_app_demo:auth-cookie-mutation'
+const browserAuthLockName = 'vibe:auth-cookie-mutation'
 
 export class BrowserAuthLockUnavailableError extends Error {
   readonly code = 'AUTH_BROWSER_LOCK_UNAVAILABLE'

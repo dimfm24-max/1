@@ -2,7 +2,7 @@ import type {
   PasswordResetRequestResponse,
   RegisterPayload,
   SocialAuthProvider,
-} from '@web-app-demo/contracts'
+} from '@vibe/contracts'
 
 import type { SessionMetadata } from '../domain/session'
 import type { AuthUserRecord } from '../domain/user'

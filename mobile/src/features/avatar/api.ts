@@ -5,7 +5,7 @@ import {
   type AvatarResponse,
   type CreateAvatarUploadRequest,
   type CreateAvatarUploadResponse,
-} from '@web-app-demo/contracts';
+} from '@vibe/contracts';
 
 import type { ApiTransport } from '@/platform/api';
 

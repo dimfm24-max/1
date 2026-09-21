@@ -1,7 +1,7 @@
 import type {
   RegisterPushTokenRequest,
   UnregisterPushTokenRequest,
-} from '@web-app-demo/contracts'
+} from '@vibe/contracts'
 
 export type EnqueuePushNotificationInput = {
   body: string

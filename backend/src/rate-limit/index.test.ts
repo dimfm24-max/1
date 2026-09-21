@@ -4,7 +4,7 @@ import { loadEnv } from '../env'
 import { createRateLimitStores } from './index'
 
 const base = {
-  DATABASE_URL: 'postgresql://superuser:superpassword@localhost:54329/web_app_demo',
+  DATABASE_URL: 'postgresql://superuser:superpassword@localhost:54329/vibe',
   JWT_SECRET: '12345678901234567890123456789012',
 }
 

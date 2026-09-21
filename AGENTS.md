@@ -23,7 +23,7 @@ Before work in an area, read its guide:
 | Area | Guide and rule |
 | --- | --- |
 | Module boundaries and infrastructure | `docs/ARCHITECTURE.md` |
-| Website data, catalog, cart, checkout, orders, subscriptions, access, and payments | `docs/WEB_SURFACES.md`. Preserve behavior ownership and a single browser checkout. |
+| Website data, catalog, cart, checkout, orders, access, and payments | `docs/WEB_SURFACES.md`. Preserve behavior ownership and a single browser checkout. |
 | Local PostgreSQL | `docs/LOCAL_DATABASE.md` and `docker-compose.yml`. Use Docker Compose unless the user chooses another option. |
 | Background or scheduled work | `docs/BACKGROUND_JOBS.md` |
 | Test setup and new scenarios | `docs/TESTING.md`. For mobile work, also read the mobile README on the `mobile` branch. |

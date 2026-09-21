@@ -13,15 +13,13 @@
 - После входа открывается `/components` в оболочке нижних вкладок вместе с `/profile`.
 - `/profile` позволяет добавить, заменить и удалить фотографию. Перед загрузкой изображение уменьшается и сохраняется как JPEG.
 - `/details/[id]` — стековый экран вне вкладок с кнопкой назад сверху слева.
-- `/paywall` содержит выключенную подписку. `IapProvider` не подключён; экран сообщает об этом вместо предложения покупки. Включение — в `docs/IAP.md`.
-- После включения работают покупки App Store/Google Play и ввод offer code на iOS. Google Play redemption, подписанные promotional offers, alternative billing и внешние ссылки покупки отложены.
 - Apple/Google sign-in также выключен: кнопки и backend-маршруты не подключены. См. `docs/SOCIAL_AUTH.md`.
 - `src/components/dashboard/ScreenShell.tsx` владеет общим нативным заголовком. Низкоуровневый `Screen` управляет safe area, прокруткой, клавиатурой и возвратом.
 - Телефоны используют нативные нижние вкладки. Широкий Expo Web переключается на общую боковую панель/inset.
 
 ## Платежи в разных клиентах
 
-До работы прочитай [WEB_SURFACES.md](../docs/WEB_SURFACES.md). Mobile владеет нативной оплатой отдельно от браузерного checkout. Подписки магазинов включаются через реестр возможностей. По потребности добавляй карты, Apple Pay или Google Pay без перехода через `website`/`webapp`. Сначала проверь текущие правила магазина для продукта, витрины и региона.
+До работы прочитай [WEB_SURFACES.md](../docs/WEB_SURFACES.md). Mobile владеет нативной оплатой отдельно от браузерного checkout. Подписки магазинов удалены при установке проекта. По потребности добавляй карты, Apple Pay или Google Pay без перехода через `website`/`webapp`. Сначала проверь текущие правила магазина для продукта, витрины и региона.
 
 ## Локальный пользователь
 
@@ -34,7 +32,7 @@ bun run dev:seed
 
 ```
 
-Seed создаёт демоаккаунты без подписки или premium-доступа. Вход в приложение не зависит от оплаты:
+Seed создаёт демоаккаунты:
 
 | Email | Пароль | Экран после входа |
 | --- | --- | --- |
@@ -59,11 +57,10 @@ iOS Simulator может скрыть эту ошибку, поскольку lo
 ## Стек
 
 - Expo SDK 57, React Native, TypeScript и Expo Router.
-- TanStack Query/Form и общие Zod-контракты `@web-app-demo/contracts`.
+- TanStack Query/Form и общие Zod-контракты `@vibe/contracts`.
 - Expo SecureStore и Notifications.
 - Expo ImagePicker, ImageManipulator и FileSystem для аватаров.
 - Expo Apple Authentication и React Native Google Sign-In для необязательного социального входа.
-- Expo IAP для подписок App Store/Google Play.
 - Нативные UI-примитивы в стиле ShadCN, `src/components/ui`.
 - Smoke-сценарий Maestro E2E.
 
@@ -92,13 +89,6 @@ EXPO_PUBLIC_API_URL=http://localhost:3000
 EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID=
 EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=
 EXPO_PUBLIC_GOOGLE_IOS_URL_SCHEME=
-EXPO_PUBLIC_IAP_IOS_MONTHLY_PRODUCT_ID=com.example.app.premium.monthly
-EXPO_PUBLIC_IAP_IOS_YEARLY_PRODUCT_ID=com.example.app.premium.yearly
-EXPO_PUBLIC_IAP_ANDROID_PACKAGE_NAME=com.example.app
-EXPO_PUBLIC_IAP_ANDROID_MONTHLY_PRODUCT_ID=com.example.app.premium
-EXPO_PUBLIC_IAP_ANDROID_MONTHLY_BASE_PLAN_ID=monthly
-EXPO_PUBLIC_IAP_ANDROID_YEARLY_PRODUCT_ID=com.example.app.premium
-EXPO_PUBLIC_IAP_ANDROID_YEARLY_BASE_PLAN_ID=yearly
 EXPO_PUBLIC_DISABLE_PUSH_NOTIFICATIONS=0
 ```
 
@@ -117,7 +107,7 @@ EXPO_PUBLIC_E2E=1
 
 `EXPO_PUBLIC_E2E=1` и `EXPO_PUBLIC_DISABLE_PUSH_NOTIFICATIONS=1` отключают push-регистрацию: симулятор/E2E не спрашивает разрешение и не меняет токены backend. Все `EXPO_PUBLIC_*` входят в клиентскую сборку. Секреты здесь запрещены.
 
-Настройка Apple/Google — в [SOCIAL_AUTH.md](../docs/SOCIAL_AUTH.md). После изменения Apple capability или Google iOS URL scheme нужна новая development build. Настройка магазинов, backend-ключей, sandbox/internal testing, восстановления и диагностики — в [IAP.md](../docs/IAP.md).
+Настройка Apple/Google — в [SOCIAL_AUTH.md](../docs/SOCIAL_AUTH.md). После изменения Apple capability или Google iOS URL scheme нужна новая development build.
 
 ## Expo Push
 
@@ -157,7 +147,7 @@ bunx eas-cli build --profile development --platform ios
 
 `expo-dev-client` установлен. Каталоги `ios`/`android` генерируются через Expo prebuild/development build и не хранятся в шаблоне.
 
-Google Sign-In и покупки/восстановление через `expo-iap` требуют custom development build. Expo Go не подходит. После изменения IAP plugin или нативной настройки пересобери dev client. EAS сам выполняет prebuild; для локального native-проекта выполни `npx expo prebuild --clean` перед сборкой. Реальные покупки проверяй на устройстве или в тестовой сборке магазина с аккаунтом тестировщика.
+Google Sign-In требует custom development build. Expo Go не подходит. После изменения нативной настройки пересобери dev client. EAS сам выполняет prebuild; для локального native-проекта выполни `npx expo prebuild --clean` перед сборкой.
 
 ## Maestro E2E
 
@@ -169,7 +159,7 @@ Auth smoke проверяет регистрацию, авторизованны
 docker compose version
 docker info
 docker compose --env-file backend/.env up -d postgres_test
-export TEST_DATABASE_URL="postgresql://superuser:superpassword@localhost:54330/web_app_demo_test?schema=public"
+export TEST_DATABASE_URL="postgresql://superuser:superpassword@localhost:54330/vibe_test?schema=public"
 export LAN_IP=<your-machine-lan-ip>
 export BACKEND_PORT=3000
 export METRO_PORT=8081
@@ -216,11 +206,11 @@ Web E2E проверяет передачу, сохранение после п�
 
 Expo Web сохраняет тот же протокол маркера, но refresh остаётся только в HttpOnly-cookie. Изменения cookies требуют исключительной Web Lock; без поддержки клиент отказывает до запроса. Успешные register/login/logout увеличивают browser epoch внутри блокировки. События storage/BroadcastChannel уведомляют другие вкладки. До повтора запроса refresh сверяет epoch и `{ userId, sessionId }` из access-токенов. По таймауту logout отменяет запрос и освобождает блокировку. Нативный транспорт не использует браузерный координатор.
 
-Продуктовый код находится в `src/features/auth`, `src/features/avatar`, `src/features/billing`, `src/features/notifications`. `src/composition` создаёт API и передаёт провайдеру только его интерфейс. `src/platform/api` управляет fetch, повторами auth, base URL и ошибками без знания endpoint. Пути и схемы принадлежат API функции. Маршруты используют только публичные index. После изменения границ выполни `bun run architecture:check`, после Expo-зависимостей — `bun run doctor` с закреплённым Expo Doctor 1.20.0.
+Продуктовый код находится в `src/features/auth`, `src/features/avatar`, `src/features/notifications`. `src/composition` создаёт API и передаёт провайдеру только его интерфейс. `src/platform/api` управляет fetch, повторами auth, base URL и ошибками без знания endpoint. Пути и схемы принадлежат API функции. Маршруты используют только публичные index. После изменения границ выполни `bun run architecture:check`, после Expo-зависимостей — `bun run doctor` с закреплённым Expo Doctor 1.20.0.
 
 `src/components/ui` повторяет имена локального Web ShadCN registry нативными реализациями. Используй native style props, controlled/uncontrolled значения и touch-поведение вместо DOM/Radix `className`/`asChild`. Защищённый `/components` — локальный каталог и smoke-экран после входа.
 
-Токены цвета, радиуса, расстояний, текста и взаимодействия находятся в `src/components/ui/theme-tokens.ts` и `src/components/ui/theme.ts`. `src/components/dashboard` владеет `ScreenShell`, `SiteHeader`, карточками, навигацией, строками и loading/empty/error состояниями. Auth/billing принимают данные, состояния и callbacks без `style`/`className`. Маршруты только размещают компоненты.
+Токены цвета, радиуса, расстояний, текста и взаимодействия находятся в `src/components/ui/theme-tokens.ts` и `src/components/ui/theme.ts`. `src/components/dashboard` владеет `ScreenShell`, `SiteHeader`, карточками, навигацией, строками и loading/empty/error состояниями. Функции принимают данные, состояния и callbacks без `style`/`className`. Маршруты только размещают компоненты.
 
 Видимый текст выводи через `src/components/ui/typography.tsx`. `Typography` владеет `h1`–`h6`, body, caption, label, button, link и code. Не импортируй React Native `Text` напрямую в экраны/примитивы и не используй старые обёртки текста.
 
@@ -241,7 +231,7 @@ git fetch origin
 bun run mobile:template:check -- --published
 ```
 
-Обычный режим допускает чистый коммит впереди `origin/mobile`. `--published` требует равенства `HEAD` и удалённой ветки. Оба режима требуют актуальный `origin/master` в истории mobile, рабочие файлы mobile/IAP, общие контракты, согласованные правила агентов и ровно три указанные возможности `available`.
+Обычный режим допускает чистый коммит впереди `origin/mobile`. `--published` требует равенства `HEAD` и удалённой ветки. Оба режима требуют актуальный `origin/master` в истории mobile, рабочие файлы mobile, общие контракты и согласованные правила агентов. После удаления подписок при установке проекта эта проверка шаблона больше не проходит.
 
 Проверка запускает `bun run check`: шаблон, архитектуру, аудит зависимостей, типы, lint, тесты с backend integration и контракты сборки. Затем выполняет аудит Maestro. Если команды нет или она упала, останови установку/публикацию шаблона. Исправление синхронизации принадлежит владельцу шаблона, не новому продуктовому проекту.
 

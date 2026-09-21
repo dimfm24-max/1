@@ -42,7 +42,7 @@ bun run --cwd backend db:deploy
 
 `test:unit` и `test:integration` принимают точные найденные пути относительно `backend/` и фильтр имени Bun `-t`. Без фильтров запускается весь набор.
 
-`bun run test:integration` запускает `postgres_test` из `../docker-compose.yml`, применяет миграции к `web_app_demo_test` и выполняет выбранные тесты. Каждый запуск получает отдельный Compose-проект. Блок `finally` удаляет только его сервис, именованный том и сеть, в том числе после частичной ошибки запуска.
+`bun run test:integration` запускает `postgres_test` из `../docker-compose.yml`, применяет миграции к `vibe_test` и выполняет выбранные тесты. Каждый запуск получает отдельный Compose-проект. Блок `finally` удаляет только его сервис, именованный том и сеть, в том числе после частичной ошибки запуска.
 
 - `TEST_KEEP_DOCKER=1` сохраняет эти ресурсы для диагностики.
 - Для внешнего Docker задай вместе `TEST_SKIP_DOCKER=1` и `TEST_DATABASE_URL`. В этом режиме скрипт не меняет Docker-ресурсы.
@@ -56,8 +56,8 @@ bun run --cwd backend db:deploy
 
 | Переменная | Локальный сервис | БД | Пользователь / пароль | Порт |
 | --- | --- | --- | --- | --- |
-| `DATABASE_URL` | `postgres` | `web_app_demo` | `superuser` / `superpassword` | `54329` |
-| `TEST_DATABASE_URL` | `postgres_test` | `web_app_demo_test` | `superuser` / `superpassword` | `54330` при ручном запуске |
+| `DATABASE_URL` | `postgres` | `vibe` | `superuser` / `superpassword` | `54329` |
+| `TEST_DATABASE_URL` | `postgres_test` | `vibe_test` | `superuser` / `superpassword` | `54330` при ручном запуске |
 
 Это публичные локальные значения из [инструкции PostgreSQL](../docs/LOCAL_DATABASE.md). Автоматические тесты могут выбрать порт по репозиторию, чтобы копии проекта не конфликтовали.
 
@@ -65,7 +65,7 @@ bun run --cwd backend db:deploy
 
 Локальный `JWT_SECRET` содержит не менее 32 символов. Production принимает шестнадцатеричный результат `openssl rand -hex 32` длиной от 64 символов. Не используй заглушку `.env.example`, повторяющиеся символы или фразы.
 
-`bun run prisma:seed` создаёт локального администратора и обычного пользователя без подписки или premium-доступа. Из корня доступна команда `bun run dev:seed`. Нужны пары email/пароль `DEV_SEED_ADMIN_*` и `DEV_SEED_USER_*` в `backend/.env`. Команда запрещает `NODE_ENV=production` и нелокальный URL PostgreSQL.
+`bun run prisma:seed` создаёт локального администратора и обычного пользователя. Из корня доступна команда `bun run dev:seed`. Нужны пары email/пароль `DEV_SEED_ADMIN_*` и `DEV_SEED_USER_*` в `backend/.env`. Команда запрещает `NODE_ENV=production` и нелокальный URL PostgreSQL.
 
 При повторе seed сохраняет хеши неизменённых паролей, сессии и push-регистрации. Если пароль изменён, команда обновляет Argon2id-хеш и отзывает прежние права auth и push. Публичные демопароли нельзя использовать в production.
 
@@ -85,7 +85,7 @@ Production использует отдельную команду `bun run db:de
 
 Общая функция `createEmailDelivery` в `src/email` создаёт доставку для API и `outbox:drain`. `EMAIL_DELIVERY` выбирает `disabled`, `console`, `postbox` или `resend`. Без переменной схема выбирает `disabled`; локальный `.env.example` задаёт `console`, чтобы печатать ссылки сброса. Production запрещает `console`. При `disabled` запрос сброса возвращает обычный общий ответ, но не создаёт токен или задачу. Провайдеры, ошибки и проверки описаны в [docs/EMAIL.md](../docs/EMAIL.md).
 
-Auth, IAP и webhooks имеют отдельные лимиты тела и частоты запросов. `AUTH_BODY_LIMIT_BYTES` ограничивает auth. `INGRESS_RATE_LIMIT_PROVIDER=local` включает локальные лимиты фиксированных окон. `yandex-sws` допустим только после замены этих лимитов описанной политикой Smart Web Security на границе сети. При `TRUST_PROXY=false` адрес берётся из соединения Bun. За доверенным прокси задай `TRUST_PROXY=true` и его `TRUSTED_PROXY_CLIENT_IP_HEADER`. Используй `TRUSTED_PROXY_CLIENT_IP_POSITION=last` только если провайдер дописывает клиента в конец цепочки. App Platform использует `do-connecting-ip`; описанный путь Yandex — последнее значение `X-Forwarded-For`.
+Auth имеет отдельные лимиты тела и частоты запросов. `AUTH_BODY_LIMIT_BYTES` ограничивает auth. `INGRESS_RATE_LIMIT_PROVIDER=local` включает локальные лимиты фиксированных окон. `yandex-sws` допустим только после замены этих лимитов описанной политикой Smart Web Security на границе сети. При `TRUST_PROXY=false` адрес берётся из соединения Bun. За доверенным прокси задай `TRUST_PROXY=true` и его `TRUSTED_PROXY_CLIENT_IP_HEADER`. Используй `TRUSTED_PROXY_CLIENT_IP_POSITION=last` только если провайдер дописывает клиента в конец цепочки. App Platform использует `do-connecting-ip`; описанный путь Yandex — последнее значение `X-Forwarded-For`.
 
 `RATE_LIMIT_STORE` выбирает счётчики:
 
@@ -98,7 +98,7 @@ Auth, IAP и webhooks имеют отдельные лимиты тела и ч�
 
 Расписание запускает `maintenance:process`. Auth-очистка удаляет отозванные и просроченные сессии после `SESSION_RETENTION_DAYS`, истёкшие токены сброса и окна лимитов. Maintenance также удаляет содержимое завершённых уведомлений и после включения подписок выполняет ограниченную сверку Google Play.
 
-Социальный вход выключен: маршруты и кнопки не подключены. Настраивай Apple/Google ID при включении по [SOCIAL_AUTH.md](../docs/SOCIAL_AUTH.md). Expo Push требует настройки EAS и ключей провайдеров. API регистрирует установки и ставит сообщения в очередь; `notifications:process` или `start:worker:notifications` отправляет их и проверяет receipts. Нативные подписки также выключены: включи или удали всю возможность по [IAP.md](../docs/IAP.md).
+Социальный вход выключен: маршруты и кнопки не подключены. Настраивай Apple/Google ID при включении по [SOCIAL_AUTH.md](../docs/SOCIAL_AUTH.md). Expo Push требует настройки EAS и ключей провайдеров. API регистрирует установки и ставит сообщения в очередь; `notifications:process` или `start:worker:notifications` отправляет их и проверяет receipts. Нативные подписки удалены при установке проекта.
 
 Приватное файловое хранилище включено по умолчанию: `PRIVATE_STORAGE_DRIVER=filesystem`, каталог `backend/.storage`. Само хранилище не требует облака или Docker. Для локального S3 используй `bun run storage:local:start` и драйвер `s3`; он же работает с реальным бакетом. Production запрещает filesystem. Контракт загрузок — в [docs/STORAGE.md](../docs/STORAGE.md).
 

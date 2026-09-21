@@ -54,7 +54,7 @@ Files in `backend/src` and `backend/scripts` are discovered automatically. `back
 | `*.live.test.ts` | `test:live` | An external service or account that the runner does not start |
 | Other `*.test.ts` and `*.test.mjs` files | `test:unit` | No external services |
 
-Tests for a disabled capability have `@parked-test` in the opening comment. They do not run until the marker is removed. This currently applies to the `backend/src/modules/billing/` suites. Mobile uses no marker. It excludes `mobile/tests/parked/` through `--path-ignore-patterns`. Move a file out of that directory to enable it.
+Tests for a disabled capability have `@parked-test` in the opening comment. They do not run until the marker is removed. No suite currently uses it. Mobile uses no marker.
 
 Unit and integration runners accept exact discovered paths relative to `backend/` and the `-t`/`--test-name-pattern` filter. Without filters, they run the full suite.
 
@@ -73,7 +73,7 @@ bun run --cwd backend test:live  # checks configured external services
 
 The provider test uses the real `react-dom/client`, React `act`, and small test doubles for the root container and `window`. The repository has no jsdom or happy-dom. Extend the existing test doubles. Do not add a DOM library. Check components that produce HTML, such as profile form validation, with `react-dom/server` and `renderToStaticMarkup`. The `mobile` branch extends the same model for Expo.
 
-Backend tests are next to their modules. Integration checks authentication, users/admin RBAC, and notifications through the application and transport with real PostgreSQL. Billing tests are disabled with the capability. Enable them after enabling the tables according to [IAP.md](IAP.md). Coverage includes session rotation, permissions, profiles, the last administrator, concurrent role demotions, session revocation, seed idempotency, ownership, outbox retries, receipts, and error formats.
+Backend tests are next to their modules. Integration checks authentication, users/admin RBAC, and notifications through the application and transport with real PostgreSQL. Coverage includes session rotation, permissions, profiles, the last administrator, concurrent role demotions, session revocation, seed idempotency, ownership, outbox retries, receipts, and error formats.
 
 Each managed run creates a separate `${COMPOSE_PROJECT_NAME}-integration-<run>`. It starts `postgres_test`, waits for readiness, applies migrations, and runs the selected files. Without a filter, it runs all discovered integration tests.
 
@@ -85,7 +85,7 @@ Each managed run creates a separate `${COMPOSE_PROJECT_NAME}-integration-<run>`.
 
 Two runs from the same checkout get different Compose projects but the same derived port. If the port is occupied, the second run fails without stopping the first. To use another run's managed database, enable skip and supply its test URL.
 
-Integration and Docker smoke require a database name with `_test` by default. A separate variable permits an intentional exception. This protects `web_app_demo` from test writes. See [LOCAL_DATABASE.md](LOCAL_DATABASE.md) for connection and reset instructions.
+Integration and Docker smoke require a database name with `_test` by default. A separate variable permits an intentional exception. This protects `vibe` from test writes. See [LOCAL_DATABASE.md](LOCAL_DATABASE.md) for connection and reset instructions.
 
 Docker smoke creates a separate Compose project and port. It builds the backend and starts it with its own `postgres_test`. It waits for `/health/ready`, checks token authentication with the database, and removes only its own containers, network, and volume.
 
@@ -145,7 +145,7 @@ Use this check for storage changes or an explicit storage audit. It does not rep
 Variables:
 
 ```bash
-TEST_DATABASE_URL="postgresql://superuser:superpassword@localhost:<test-port>/web_app_demo_test?schema=public"
+TEST_DATABASE_URL="postgresql://superuser:superpassword@localhost:<test-port>/vibe_test?schema=public"
 POSTGRES_TEST_PORT=<test-port>
 E2E_BACKEND_PORT=<backend-port>
 E2E_WEB_PORT=<web-port>
@@ -182,7 +182,7 @@ Requirements:
 
 - Java 17+.
 - Xcode and iOS Simulator, or Android Studio and an emulator.
-- An installed Expo development build with `bundleIdentifier/package` set to `com.webappdemo.mobile`. Expo Go is not sufficient.
+- An installed Expo development build with `bundleIdentifier/package` set to `com.vibe.app`. Expo Go is not sufficient.
 - A backend with Docker Compose `postgres_test`, reachable through the Metro build's `EXPO_PUBLIC_API_URL`.
 - An `E2E_API_HEALTH_URL` reachable from the computer, for example `http://<LAN_IP>:3000/health`.
 - A reachable Metro server at `MAESTRO_DEV_SERVER_URL`, for example `http://<LAN_IP>:8081`.
@@ -194,7 +194,7 @@ Create `backend/.env` from `backend/.env.example` if it is missing. For a custom
 docker compose version
 docker info
 docker compose --env-file backend/.env up -d postgres_test
-export TEST_DATABASE_URL="postgresql://superuser:superpassword@localhost:54330/web_app_demo_test?schema=public"
+export TEST_DATABASE_URL="postgresql://superuser:superpassword@localhost:54330/vibe_test?schema=public"
 export LAN_IP=<your-machine-lan-ip>
 export BACKEND_PORT=3000
 export METRO_PORT=8081
@@ -232,7 +232,7 @@ Available options:
 
 ```bash
 MAESTRO_DEVICE="iPhone 16 Pro"
-MAESTRO_APP_ID=com.webappdemo.mobile
+MAESTRO_APP_ID=com.vibe.app
 MAESTRO_DEV_SERVER_URL=http://<LAN_IP>:8081
 MAESTRO_DEV_CLIENT_SCHEME=exp+mobile
 MAESTRO_MIN_VERSION=2.4.0

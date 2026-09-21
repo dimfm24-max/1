@@ -9,7 +9,7 @@ import {
   type TestPushNotificationRequest,
   type TestPushNotificationResponse,
   type UnregisterPushTokenRequest,
-} from '@web-app-demo/contracts';
+} from '@vibe/contracts';
 
 import type { ApiTransport } from '@/platform/api';
 

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import type { AdminUserSummary, AdminUsersResponse, UserDto } from '@web-app-demo/contracts'
+import type { AdminUserSummary, AdminUsersResponse, UserDto } from '@vibe/contracts'
 import { afterEach, expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'

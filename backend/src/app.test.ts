@@ -6,7 +6,7 @@ import { loadEnv } from './env'
 import { createApp } from './app'
 
 const env = loadEnv({
-  DATABASE_URL: 'postgresql://superuser:superpassword@localhost:54329/web_app_demo',
+  DATABASE_URL: 'postgresql://superuser:superpassword@localhost:54329/vibe',
   JWT_SECRET: '12345678901234567890123456789012',
 })
 
@@ -57,10 +57,6 @@ async function createAdminDirectoryTestApp({
         const session = sessions.get(where.id)
         return session?.userId === where.userId ? session : null
       },
-    },
-    // Unused while billing is parked; kept so the restored suites need no extra edit.
-    subscriptionEntitlement: {
-      findUnique: async () => null,
     },
     user: {
       count: async () => users.size,
@@ -191,9 +187,6 @@ test('CORS preflight allows the standard mutation methods exposed by the client 
   expect(response.headers.get('access-control-allow-methods')).toContain('PATCH')
 })
 
-// The App Store webhook ingress suite lived here commented out; docs/IAP.md says what to switch
-// on, and git log -p has the tests. Commented tests compile for nobody.
-
 test('account mutations reject oversized bodies before authentication', async () => {
   const app = createApp({
     env: { ...env, AUTH_BODY_LIMIT_BYTES: 32 },
@@ -234,9 +227,6 @@ test('Yandex SWS ingress delegates IP request limits while retaining body limits
     ...env,
     AUTH_BODY_LIMIT_BYTES: 32,
     AUTH_RATE_LIMIT_MAX: 1,
-    IAP_RATE_LIMIT_MAX: 1,
-    WEBHOOK_RATE_LIMIT_MAX: 1,
-    WEBHOOK_BODY_LIMIT_BYTES: 32,
     INGRESS_RATE_LIMIT_PROVIDER: 'yandex-sws' as const,
     TRUST_PROXY: true,
     TRUSTED_PROXY_CLIENT_IP_HEADER: 'x-forwarded-for',
@@ -254,17 +244,6 @@ test('Yandex SWS ingress delegates IP request limits while retaining body limits
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({}),
     }) },
-    // Billing rows, uncomment with the routes:
-    // { expectedStatus: 400, send: () => app.request('/api/iap/app-store/transactions', {
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify({}),
-    // }) },
-    // { expectedStatus: 400, send: () => app.request('/api/webhooks/app-store', {
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify({}),
-    // }) },
   ]
 
   for (const request of requests) {

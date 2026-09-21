@@ -6,7 +6,7 @@ This template includes native mobile Apple and Google authentication on top of t
 
 The implementation is complete and switched off. `POST /api/auth/token/social/{provider}` is
 defined but not mounted in `backend/src/modules/auth/transport/routes.ts`, and the mobile sign-in
-screen does not render `SocialAuthButtons`. Unlike subscriptions, the schema stays intact: the
+screen does not render `SocialAuthButtons`. The schema stays intact: the
 `appleSubject` and `googleSubject` columns on `users` are two nullable columns that cost nothing
 and keep the auth repository compiling.
 
@@ -30,7 +30,7 @@ Reference implementation, if this copy ever drifts: `github.com/di-sukharev/vibe
 
 ### If Social Sign-In Is Not Wanted
 
-Like billing, deleting reaches past the obvious files. Remove all of it in one pass:
+Deleting reaches past the obvious files. Remove all of it in one pass:
 
 - `backend/src/modules/auth/infrastructure/social-providers.ts`, the `tokenSocialAuthRoute`
   definition and its parked handler in `transport/routes.ts`, `AuthService.socialAuth` with the
