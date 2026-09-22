@@ -70,6 +70,7 @@ model Goal {
   user         User      @relation(fields: [userId], references: [id], onDelete: Cascade, map: "goals_user_id_fkey")
   primaryOf    LifeGoal? @relation("LifeGoalPrimaryGoal")
   stages       GoalStage[]
+  notes        Note[]
 
   @@index([userId, status], map: "goals_user_id_status_idx")
   @@index([lifeGoalId, position], map: "goals_life_goal_id_position_idx")

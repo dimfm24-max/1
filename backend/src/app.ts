@@ -17,6 +17,7 @@ import { createAuthModule, type AuthHttpEnv } from './modules/auth'
 import { createDayModule } from './modules/day'
 import { createGoalsModule } from './modules/goals'
 import { createHabitsModule } from './modules/habits'
+import { createNotesModule } from './modules/notes'
 import { createStatisticsModule } from './modules/statistics'
 import { createNotificationsModule } from './modules/notifications'
 import { createUploadsModule } from './modules/uploads'
@@ -67,6 +68,7 @@ export function createApp({
   const day = createDayModule({ db: prisma, requireAuth: auth.requireAuth })
   const habits = createHabitsModule({ db: prisma, requireAuth: auth.requireAuth })
   const statistics = createStatisticsModule({ db: prisma, requireAuth: auth.requireAuth })
+  const notes = createNotesModule({ db: prisma, requireAuth: auth.requireAuth })
   const uploads = createUploadsModule({
     backgroundTasks,
     db: prisma,
@@ -126,6 +128,7 @@ export function createApp({
     app.use('/api/day/*', middleware)
     app.use('/api/habits/*', middleware)
     app.use('/api/statistics/*', middleware)
+    app.use('/api/notes/*', middleware)
     app.use('/api/uploads/*', middleware)
   }
   app.get('/', (c) => {
@@ -165,6 +168,7 @@ export function createApp({
   app.route('/api/day', day.routes)
   app.route('/api/habits', habits.routes)
   app.route('/api/statistics', statistics.routes)
+  app.route('/api/notes', notes.routes)
   app.route('/api/notifications', notifications.createRoutes(auth.authenticateAccessToken))
   app.route('/api/uploads', uploads.routes)
 

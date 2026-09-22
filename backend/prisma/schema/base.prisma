@@ -44,6 +44,9 @@ model User {
   habits              Habit[]
   habitMarks          HabitMark[]
 
+  // Notes; remove together with prisma/schema/notes.prisma.
+  notes               Note[]
+
   @@map("users")
 }
 

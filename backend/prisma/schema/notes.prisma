@@ -1,0 +1,24 @@
+// Notes: free writing, optionally attached to a goal. Delete this file and the matching block in
+// base.prisma to remove the capability entirely.
+
+model Note {
+  id     String @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  userId String @map("user_id") @db.Uuid
+
+  title String?
+  body  String
+
+  /// The goal this note belongs to, when it belongs to one. Cleared rather than cascaded: a
+  /// thought written while working on a goal outlives the goal being deleted.
+  goalId String? @map("goal_id") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User  @relation(fields: [userId], references: [id], onDelete: Cascade, map: "notes_user_id_fkey")
+  goal Goal? @relation(fields: [goalId], references: [id], onDelete: SetNull, map: "notes_goal_id_fkey")
+
+  @@index([userId, updatedAt], map: "notes_user_id_updated_at_idx")
+  @@index([goalId], map: "notes_goal_id_idx")
+  @@map("notes")
+}

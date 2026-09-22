@@ -157,6 +157,7 @@ Auth имеет отдельные лимиты тела и частоты за�
 - `POST /api/day/templates`, `POST /api/day/templates/apply`, `POST /api/day/templates/{templateId}/items`
 - `GET|POST /api/habits`, `PATCH|DELETE /api/habits/{habitId}`, `POST /api/habits/{habitId}/marks`
 - `GET /api/statistics`
+- `GET|POST /api/notes`, `PATCH|DELETE /api/notes/{noteId}`
 - `GET /api/goals`
 - `PUT /api/goals/life-goal`
 - `POST /api/goals/goals`, `PATCH|DELETE /api/goals/goals/{goalId}`
