@@ -21,6 +21,11 @@ export const apiErrorCodeSchema = z.enum([
   'UPLOAD_NOT_COMPLETED',
   'UPLOAD_REJECTED',
   'UPLOAD_EXPIRED',
+  // Goal-tree refusals the interface can act on: create the life goal first, switch the goal
+  // to manual before recording a value, or reopen a closed goal before editing it.
+  'LIFE_GOAL_REQUIRED',
+  'GOAL_PROGRESS_NOT_MANUAL',
+  'GOAL_CLOSED',
   'INTERNAL_ERROR',
 ])
 

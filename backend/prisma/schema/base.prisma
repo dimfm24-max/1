@@ -26,6 +26,12 @@ model User {
   passwordResetTokens PasswordResetToken[]
   avatars             UserAvatar[]
 
+  // Goal tree; remove together with prisma/schema/goals.prisma.
+  lifeGoal            LifeGoal?
+  goals               Goal[]
+  goalStages          GoalStage[]
+  goalSteps           GoalStep[]
+
   @@map("users")
 }
 

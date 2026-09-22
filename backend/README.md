@@ -150,6 +150,12 @@ Auth имеет отдельные лимиты тела и частоты за�
 - `POST /api/auth/password-reset/request`
 - `POST /api/auth/password-reset/confirm`
 - `PATCH /api/users/me`
+- `GET /api/goals`
+- `PUT /api/goals/life-goal`
+- `POST /api/goals/goals`, `PATCH|DELETE /api/goals/goals/{goalId}`
+- `POST /api/goals/goals/{goalId}/progress|close|reopen|primary`
+- `POST /api/goals/goals/{goalId}/stages`, `PATCH|DELETE /api/goals/stages/{stageId}`
+- `POST /api/goals/stages/{stageId}/steps`, `PATCH|DELETE /api/goals/steps/{stepId}`
 - `GET /openapi.json`
 - `GET /health/live`
 - `GET /health/ready`

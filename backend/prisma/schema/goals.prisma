@@ -1,0 +1,122 @@
+// The goal tree: one life goal per person, its goals, their stages, and the steps a day is
+// planned out of. Delete this file and the matching block in base.prisma to remove the
+// capability entirely.
+
+enum GoalProgressMode {
+  manual
+  automatic
+
+  @@map("goal_progress_mode")
+}
+
+enum GoalStatus {
+  active
+  completed
+  abandoned
+
+  @@map("goal_status")
+}
+
+/// One per person, enforced by the unique owner. It has no deadline and no progress of its own:
+/// it names what the goals below are for.
+model LifeGoal {
+  id     String @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  userId String @unique @map("user_id") @db.Uuid
+  title  String
+
+  /// The goal shown on the day screen. Nullable because a life goal exists before its first
+  /// goal, and unique so "the main one" can never mean two rows. Cleared, not cascaded, when
+  /// that goal is deleted: losing the pointer must not delete the life goal with it.
+  primaryGoalId String? @unique @map("primary_goal_id") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user        User  @relation(fields: [userId], references: [id], onDelete: Cascade, map: "life_goals_user_id_fkey")
+  primaryGoal Goal? @relation("LifeGoalPrimaryGoal", fields: [primaryGoalId], references: [id], onDelete: SetNull, map: "life_goals_primary_goal_id_fkey")
+  goals       Goal[]
+
+  @@map("life_goals")
+}
+
+model Goal {
+  id         String @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  lifeGoalId String @map("life_goal_id") @db.Uuid
+
+  /// Denormalised from the life goal so every read and every ownership check is one query, and
+  /// so a step can be traced to its owner without walking three tables.
+  userId String @map("user_id") @db.Uuid
+
+  title       String
+  description String?
+  deadline    DateTime
+
+  /// The person's own words and number: "килограммов", 60. Stored as decimal because these are
+  /// counted quantities a person reads back, and float drift would show up in the progress bar.
+  measureUnit  String           @map("measure_unit")
+  targetValue  Decimal          @map("target_value") @db.Decimal(14, 3)
+  currentValue Decimal          @default(0) @map("current_value") @db.Decimal(14, 3)
+  progressMode GoalProgressMode @default(manual) @map("progress_mode")
+
+  status      GoalStatus @default(active)
+  outcomeNote String?    @map("outcome_note")
+  position    Int
+  completedAt DateTime?  @map("completed_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  lifeGoal     LifeGoal  @relation(fields: [lifeGoalId], references: [id], onDelete: Cascade, map: "goals_life_goal_id_fkey")
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade, map: "goals_user_id_fkey")
+  primaryOf    LifeGoal? @relation("LifeGoalPrimaryGoal")
+  stages       GoalStage[]
+
+  @@index([userId, status], map: "goals_user_id_status_idx")
+  @@index([lifeGoalId, position], map: "goals_life_goal_id_position_idx")
+  @@map("goals")
+}
+
+model GoalStage {
+  id     String @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  goalId String @map("goal_id") @db.Uuid
+  userId String @map("user_id") @db.Uuid
+
+  title    String
+  position Int
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  goal  Goal       @relation(fields: [goalId], references: [id], onDelete: Cascade, map: "goal_stages_goal_id_fkey")
+  user  User       @relation(fields: [userId], references: [id], onDelete: Cascade, map: "goal_stages_user_id_fkey")
+  steps GoalStep[]
+
+  @@index([goalId, position], map: "goal_stages_goal_id_position_idx")
+  @@map("goal_stages")
+}
+
+model GoalStep {
+  id      String @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  stageId String @map("stage_id") @db.Uuid
+  userId  String @map("user_id") @db.Uuid
+
+  title String
+
+  /// How long the person expects this to take, in minutes. Optional: an estimate is a planning
+  /// aid, and demanding one would stop the tree being written quickly.
+  estimatedMinutes Int? @map("estimated_minutes")
+
+  /// Completion is a moment, not a flag, so the day screen and the statistics can both ask when.
+  completedAt DateTime? @map("completed_at")
+  position    Int
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  stage GoalStage @relation(fields: [stageId], references: [id], onDelete: Cascade, map: "goal_steps_stage_id_fkey")
+  user  User      @relation(fields: [userId], references: [id], onDelete: Cascade, map: "goal_steps_user_id_fkey")
+
+  @@index([stageId, position], map: "goal_steps_stage_id_position_idx")
+  @@index([userId, completedAt], map: "goal_steps_user_id_completed_at_idx")
+  @@map("goal_steps")
+}
