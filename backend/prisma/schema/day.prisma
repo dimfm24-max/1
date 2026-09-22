@@ -1,0 +1,178 @@
+// The day: what a person plans, and the settings that shape how it is shown. Delete this file
+// and the matching block in base.prisma to remove the capability entirely.
+
+enum TaskPriority {
+  normal
+  important
+  urgent
+
+  @@map("task_priority")
+}
+
+enum TaskOutcome {
+  /// Still on the day, done or not.
+  planned
+  done
+  /// The person chose to let it go rather than carry it forward. Kept in history: a day is
+  /// honest about what did not happen.
+  burned
+
+  @@map("task_outcome")
+}
+
+/// Per-person preferences the day screen reads on every render. One row per account, created on
+/// first read, so the app never has to answer "what if it is missing".
+model UserSettings {
+  id     String @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  userId String @unique @map("user_id") @db.Uuid
+
+  /// Minutes past midnight the day starts at. A person who works past midnight sets 4:00 and
+  /// their day keeps its shape instead of splitting in two.
+  dayStartMinute Int @default(0) @map("day_start_minute")
+
+  /// What a new task lasts unless told otherwise.
+  defaultTaskMinutes Int @default(30) @map("default_task_minutes")
+
+  /// How the app speaks: friendly, pushing, respectful, neutral. Stored as text rather than an
+  /// enum because the wording is product copy and will change more often than the schema.
+  tone String @default("friendly")
+
+  /// Date of birth and the age the horizon counts to. Both nullable: the horizon is part of the
+  /// product, but it cannot be shown before the person supplies the two numbers it needs.
+  birthDate      DateTime? @map("birth_date") @db.Date
+  lifeExpectancy Int?      @map("life_expectancy")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade, map: "user_settings_user_id_fkey")
+
+  @@map("user_settings")
+}
+
+/// Colour and grouping for tasks: work, sport, family. The person's own list, not a fixed one.
+model TaskCategory {
+  id     String @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  userId String @map("user_id") @db.Uuid
+
+  title String
+  /// A hex colour the interface renders directly. Validated by the contract, not the database.
+  color    String
+  position Int
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade, map: "task_categories_user_id_fkey")
+  tasks Task[]
+
+  @@index([userId, position], map: "task_categories_user_id_position_idx")
+  @@map("task_categories")
+}
+
+model Task {
+  id     String @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  userId String @map("user_id") @db.Uuid
+
+  /// The calendar day this task sits on, as a date rather than a moment: moving a task to
+  /// tomorrow must not depend on the hour it was created.
+  scheduledOn DateTime @map("scheduled_on") @db.Date
+
+  /// Minutes past midnight. Null means the task belongs to the day but not to a time - a chore
+  /// that has to happen today, with no hour attached.
+  startMinute     Int? @map("start_minute")
+  durationMinutes Int  @default(30) @map("duration_minutes")
+
+  title       String
+  description String?
+  priority    TaskPriority @default(normal)
+  outcome     TaskOutcome  @default(planned)
+  completedAt DateTime?    @map("completed_at")
+
+  /// Set when this task came from another day, so the day screen can say so rather than
+  /// pretending it was always here.
+  movedFrom DateTime? @map("moved_from") @db.Date
+
+  /// A colour that overrides the category's, for a task a person wants to stand out.
+  colorOverride String? @map("color_override")
+
+  categoryId String? @map("category_id") @db.Uuid
+
+  /// The step of a goal this task advances. Optional on purpose: errands are not goals, and
+  /// forcing every task under a goal would push chores out of the plan instead of into it.
+  stepId String? @map("step_id") @db.Uuid
+
+  position Int
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade, map: "tasks_user_id_fkey")
+  category TaskCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull, map: "tasks_category_id_fkey")
+  step     GoalStep?     @relation(fields: [stepId], references: [id], onDelete: SetNull, map: "tasks_step_id_fkey")
+  subtasks TaskSubtask[]
+
+  @@index([userId, scheduledOn], map: "tasks_user_id_scheduled_on_idx")
+  @@index([stepId], map: "tasks_step_id_idx")
+  @@map("tasks")
+}
+
+model TaskSubtask {
+  id     String @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  taskId String @map("task_id") @db.Uuid
+  userId String @map("user_id") @db.Uuid
+
+  title       String
+  completedAt DateTime? @map("completed_at")
+  position    Int
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade, map: "task_subtasks_task_id_fkey")
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade, map: "task_subtasks_user_id_fkey")
+
+  @@index([taskId, position], map: "task_subtasks_task_id_position_idx")
+  @@map("task_subtasks")
+}
+
+/// A named shape of a day - weekday, day off, training day - that a person applies to build
+/// tomorrow instead of typing it again.
+model DayTemplate {
+  id     String @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  userId String @map("user_id") @db.Uuid
+
+  title    String
+  position Int
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user  User              @relation(fields: [userId], references: [id], onDelete: Cascade, map: "day_templates_user_id_fkey")
+  items DayTemplateItem[]
+
+  @@index([userId, position], map: "day_templates_user_id_position_idx")
+  @@map("day_templates")
+}
+
+model DayTemplateItem {
+  id         String @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  templateId String @map("template_id") @db.Uuid
+  userId     String @map("user_id") @db.Uuid
+
+  title           String
+  startMinute     Int?         @map("start_minute")
+  durationMinutes Int          @default(30) @map("duration_minutes")
+  priority        TaskPriority @default(normal)
+  categoryId      String?      @map("category_id") @db.Uuid
+  position        Int
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  template DayTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade, map: "day_template_items_template_id_fkey")
+  user     User        @relation(fields: [userId], references: [id], onDelete: Cascade, map: "day_template_items_user_id_fkey")
+
+  @@index([templateId, position], map: "day_template_items_template_id_position_idx")
+  @@map("day_template_items")
+}

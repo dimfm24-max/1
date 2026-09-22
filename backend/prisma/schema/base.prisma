@@ -32,6 +32,14 @@ model User {
   goalStages          GoalStage[]
   goalSteps           GoalStep[]
 
+  // The day; remove together with prisma/schema/day.prisma.
+  settings            UserSettings?
+  taskCategories      TaskCategory[]
+  tasks               Task[]
+  taskSubtasks        TaskSubtask[]
+  dayTemplates        DayTemplate[]
+  dayTemplateItems    DayTemplateItem[]
+
   @@map("users")
 }
 

@@ -26,6 +26,8 @@ export const apiErrorCodeSchema = z.enum([
   'LIFE_GOAL_REQUIRED',
   'GOAL_PROGRESS_NOT_MANUAL',
   'GOAL_CLOSED',
+  // The day refuses to re-answer a task that is already done.
+  'TASK_ALREADY_RESOLVED',
   'INTERNAL_ERROR',
 ])
 

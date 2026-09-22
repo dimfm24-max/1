@@ -1,4 +1,5 @@
 export * from './auth'
+export * from './day'
 export * from './errors'
 export * from './goals'
 export * from './notifications'

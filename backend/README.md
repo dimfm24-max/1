@@ -150,6 +150,11 @@ Auth имеет отдельные лимиты тела и частоты за�
 - `POST /api/auth/password-reset/request`
 - `POST /api/auth/password-reset/confirm`
 - `PATCH /api/users/me`
+- `GET /api/day/context`, `GET /api/day/{date}`
+- `POST /api/day/tasks`, `PATCH|DELETE /api/day/tasks/{taskId}`, `POST /api/day/tasks/{taskId}/resolve`
+- `POST /api/day/tasks/{taskId}/subtasks`, `PATCH|DELETE /api/day/subtasks/{subtaskId}`
+- `PATCH /api/day/settings`, `POST /api/day/categories`, `PATCH|DELETE /api/day/categories/{categoryId}`
+- `POST /api/day/templates`, `POST /api/day/templates/apply`, `POST /api/day/templates/{templateId}/items`
 - `GET /api/goals`
 - `PUT /api/goals/life-goal`
 - `POST /api/goals/goals`, `PATCH|DELETE /api/goals/goals/{goalId}`

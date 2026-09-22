@@ -115,6 +115,7 @@ model GoalStep {
 
   stage GoalStage @relation(fields: [stageId], references: [id], onDelete: Cascade, map: "goal_steps_stage_id_fkey")
   user  User      @relation(fields: [userId], references: [id], onDelete: Cascade, map: "goal_steps_user_id_fkey")
+  tasks Task[]
 
   @@index([stageId, position], map: "goal_steps_stage_id_position_idx")
   @@index([userId, completedAt], map: "goal_steps_user_id_completed_at_idx")

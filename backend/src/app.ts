@@ -14,6 +14,7 @@ import { errorResponse, handleError, validationErrorHook } from './http/errors'
 import { createReadinessProbe } from './http/readiness'
 import { createFixedWindowRateLimit, createIngressSecurity } from './http/security'
 import { createAuthModule, type AuthHttpEnv } from './modules/auth'
+import { createDayModule } from './modules/day'
 import { createGoalsModule } from './modules/goals'
 import { createNotificationsModule } from './modules/notifications'
 import { createUploadsModule } from './modules/uploads'
@@ -61,6 +62,7 @@ export function createApp({
     requireAuth: auth.requireAuth,
   })
   const goals = createGoalsModule({ db: prisma, requireAuth: auth.requireAuth })
+  const day = createDayModule({ db: prisma, requireAuth: auth.requireAuth })
   const uploads = createUploadsModule({
     backgroundTasks,
     db: prisma,
@@ -117,6 +119,7 @@ export function createApp({
   })) {
     app.use('/api/users/*', middleware)
     app.use('/api/goals/*', middleware)
+    app.use('/api/day/*', middleware)
     app.use('/api/uploads/*', middleware)
   }
   app.get('/', (c) => {
@@ -153,6 +156,7 @@ export function createApp({
   app.route('/api/auth', auth.routes)
   app.route('/api/users', users.userRoutes)
   app.route('/api/goals', goals.routes)
+  app.route('/api/day', day.routes)
   app.route('/api/notifications', notifications.createRoutes(auth.authenticateAccessToken))
   app.route('/api/uploads', uploads.routes)
 
