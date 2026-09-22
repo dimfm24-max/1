@@ -18,6 +18,7 @@ import { createDayModule } from './modules/day'
 import { createGoalsModule } from './modules/goals'
 import { createHabitsModule } from './modules/habits'
 import { createNotesModule } from './modules/notes'
+import { createSharingModule } from './modules/sharing'
 import { createStatisticsModule } from './modules/statistics'
 import { createNotificationsModule } from './modules/notifications'
 import { createUploadsModule } from './modules/uploads'
@@ -69,6 +70,7 @@ export function createApp({
   const habits = createHabitsModule({ db: prisma, requireAuth: auth.requireAuth })
   const statistics = createStatisticsModule({ db: prisma, requireAuth: auth.requireAuth })
   const notes = createNotesModule({ db: prisma, requireAuth: auth.requireAuth })
+  const sharing = createSharingModule({ db: prisma, requireAuth: auth.requireAuth })
   const uploads = createUploadsModule({
     backgroundTasks,
     db: prisma,
@@ -129,6 +131,7 @@ export function createApp({
     app.use('/api/habits/*', middleware)
     app.use('/api/statistics/*', middleware)
     app.use('/api/notes/*', middleware)
+    app.use('/api/share/*', middleware)
     app.use('/api/uploads/*', middleware)
   }
   app.get('/', (c) => {
@@ -169,6 +172,7 @@ export function createApp({
   app.route('/api/habits', habits.routes)
   app.route('/api/statistics', statistics.routes)
   app.route('/api/notes', notes.routes)
+  app.route('/api/share', sharing.routes)
   app.route('/api/notifications', notifications.createRoutes(auth.authenticateAccessToken))
   app.route('/api/uploads', uploads.routes)
 

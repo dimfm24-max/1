@@ -1,4 +1,4 @@
-import { Outlet, useLocation, useRouter, useSearch } from '@tanstack/react-router'
+import { Outlet, useLocation, useParams, useRouter, useSearch } from '@tanstack/react-router'
 import type { UserDto } from '@dilife/contracts'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 
@@ -24,6 +24,7 @@ import { GoalsPage } from '@/features/goals'
 import { HabitsPage } from '@/features/habits'
 import { HorizonPage } from '@/features/horizon'
 import { CalendarPage } from '@/features/calendar'
+import { PublicProfilePage, SharingSettingsPage } from '@/features/sharing'
 import { NotesPage } from '@/features/notes'
 import { StatisticsPage } from '@/features/statistics'
 import { UserHome, UserProfile, UserSettings } from '@/features/users'
@@ -124,6 +125,15 @@ export function UserNotesPage() {
 
 export function UserCalendarPage() {
   return <CalendarPage />
+}
+
+export function PublicProfileRoute() {
+  const { token } = useParams({ from: '/p/$token' })
+  return <PublicProfilePage token={token} />
+}
+
+export function UserSharePage() {
+  return <SharingSettingsPage />
 }
 
 export function UserProfilePage() {

@@ -101,6 +101,19 @@ const userCalendarRoute = createRoute({
   component: lazyRouteComponent(() => import('./pages'), 'UserCalendarPage'),
 })
 
+const userShareRoute = createRoute({
+  getParentRoute: () => userWorkspaceRoute,
+  path: '/app/share',
+  component: lazyRouteComponent(() => import('./pages'), 'UserSharePage'),
+})
+
+// Public and outside the workspace layout: it has to open with no session at all.
+const publicProfileRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/p/$token',
+  component: lazyRouteComponent(() => import('./pages'), 'PublicProfileRoute'),
+})
+
 const userProfileRoute = createRoute({
   getParentRoute: () => userWorkspaceRoute,
   path: '/app/profile',
@@ -119,6 +132,7 @@ const routeTree = rootRoute.addChildren([
   signupRoute,
   forgotPasswordRoute,
   resetPasswordRoute,
+  publicProfileRoute,
   userWorkspaceRoute.addChildren([
     userHomeRoute,
     userDayRoute,
@@ -128,6 +142,7 @@ const routeTree = rootRoute.addChildren([
     userStatisticsRoute,
     userNotesRoute,
     userCalendarRoute,
+    userShareRoute,
     userProfileRoute,
     userSettingsRoute,
   ]),

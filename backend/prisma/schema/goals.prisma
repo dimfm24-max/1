@@ -60,6 +60,10 @@ model Goal {
 
   status      GoalStatus @default(active)
   outcomeNote String?    @map("outcome_note")
+
+  /// Kept out of the public link even when goals are shown. Some goals are nobody else's
+  /// business, and hiding them must not mean hiding the whole section.
+  isPrivate   Boolean    @default(false) @map("is_private")
   position    Int
   completedAt DateTime?  @map("completed_at")
 

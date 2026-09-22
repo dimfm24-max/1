@@ -47,6 +47,9 @@ model User {
   // Notes; remove together with prisma/schema/notes.prisma.
   notes               Note[]
 
+  // Public sharing; remove together with prisma/schema/sharing.prisma.
+  shareLink           ShareLink?
+
   @@map("users")
 }
 
