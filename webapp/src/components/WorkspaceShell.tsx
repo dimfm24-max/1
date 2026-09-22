@@ -2,6 +2,7 @@ import {
   Calendar03Icon,
   Home01Icon,
   ChartLineData01Icon,
+  Calendar01Icon,
   Note01Icon,
   ClockIcon,
   RepeatIcon,
@@ -29,6 +30,7 @@ const iconsByPath = {
   '/app/horizon': ClockIcon,
   '/app/statistics': ChartLineData01Icon,
   '/app/notes': Note01Icon,
+  '/app/calendar': Calendar01Icon,
   '/app/profile': UserIcon,
   '/app/settings': Settings01Icon,
 } as const
