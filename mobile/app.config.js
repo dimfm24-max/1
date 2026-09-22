@@ -44,6 +44,10 @@ module.exports = {
   expo: {
     name: 'DiLife',
     owner: 'dmitriy12',
+    // Deliberately not `dilife`. A slug is fixed when the expo.dev project is created and no API
+    // call changes it afterwards; renaming the project there changes its display name only. A
+    // slug of `dilife` would mean a new project: new id, no build history, a new Android signing
+    // key. It appears in the expo.dev URL and nowhere a person using the app can see.
     slug: 'vibe',
     version: '1.0.0',
     orientation: 'portrait',

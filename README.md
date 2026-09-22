@@ -30,7 +30,7 @@ Communicate in my language.
 
 ### Rename the project
 
-This project is already named DiLife. To rename it again, search with `rg -n "dilife|DiLife|com.dilife.app"`. Check packages, databases, cookies, Docker and Compose, images, architecture-check aliases, and `webapp/index.html`. Leave the Expo `slug` alone unless the project is renamed on expo.dev first. Make targeted edits. Regenerate `bun.lock` with the pinned Bun version. Install dependencies. Check types, architecture, and backend integration for the selected applications.
+This project is already named DiLife. To rename it again, search with `rg -n "dilife|DiLife|com.dilife.app"`. Check packages, databases, cookies, Docker and Compose, images, architecture-check aliases, and `webapp/index.html`. Leave the Expo `slug` alone: it is fixed when the expo.dev project is created and cannot be renamed, so changing it here only breaks builds. Make targeted edits. Regenerate `bun.lock` with the pinned Bun version. Install dependencies. Check types, architecture, and backend integration for the selected applications.
 
 ### Hosting and deployment
 
