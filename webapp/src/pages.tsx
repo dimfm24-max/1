@@ -23,6 +23,7 @@ import { DayPage } from '@/features/day'
 import { GoalsPage } from '@/features/goals'
 import { HabitsPage } from '@/features/habits'
 import { HorizonPage } from '@/features/horizon'
+import { StatisticsPage } from '@/features/statistics'
 import { UserHome, UserProfile, UserSettings } from '@/features/users'
 
 export function HomePage() {
@@ -109,6 +110,10 @@ export function UserHabitsPage() {
 
 export function UserHorizonPage() {
   return <HorizonPage />
+}
+
+export function UserStatisticsPage() {
+  return <StatisticsPage />
 }
 
 export function UserProfilePage() {
