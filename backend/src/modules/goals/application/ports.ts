@@ -30,7 +30,7 @@ export type GoalsRepository = {
   ): Promise<GoalDto>
   reopenGoal(userId: string, goalId: string, deadline: Date): Promise<GoalDto>
   setPrimaryGoal(userId: string, goalId: string): Promise<GoalDto>
-  deleteGoal(userId: string, goalId: string): Promise<void>
+  deleteGoal(userId: string, goalId: string): Promise<GoalTreeResponse>
   createStage(userId: string, goalId: string, input: CreateStageRequest): Promise<GoalDto>
   updateStage(userId: string, stageId: string, input: UpdateStageRequest): Promise<GoalDto>
   deleteStage(userId: string, stageId: string): Promise<GoalDto>

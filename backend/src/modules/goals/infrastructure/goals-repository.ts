@@ -188,28 +188,30 @@ export function createPrismaGoalsRepository(db: DbClient): GoalsRepository {
     return (last?.position ?? -1) + 1
   }
 
+  async function readTree(userId: string): Promise<GoalTreeResponse> {
+    const lifeGoal = await db.lifeGoal.findUnique({
+      where: { userId },
+      select: { id: true, title: true, createdAt: true, primaryGoalId: true },
+    })
+    const goals = await db.goal.findMany({
+      where: { userId },
+      orderBy: [{ status: 'asc' }, { position: 'asc' }],
+      select: goalSelect,
+    })
+    return {
+      lifeGoal: lifeGoal
+        ? {
+            id: lifeGoal.id,
+            title: lifeGoal.title,
+            createdAt: lifeGoal.createdAt.toISOString(),
+          }
+        : null,
+      goals: goals.map((goal) => toGoalDto(goal as GoalRow, lifeGoal?.primaryGoalId ?? null)),
+    }
+  }
+
   return {
-    async readTree(userId) {
-      const lifeGoal = await db.lifeGoal.findUnique({
-        where: { userId },
-        select: { id: true, title: true, createdAt: true, primaryGoalId: true },
-      })
-      const goals = await db.goal.findMany({
-        where: { userId },
-        orderBy: [{ status: 'asc' }, { position: 'asc' }],
-        select: goalSelect,
-      })
-      return {
-        lifeGoal: lifeGoal
-          ? {
-              id: lifeGoal.id,
-              title: lifeGoal.title,
-              createdAt: lifeGoal.createdAt.toISOString(),
-            }
-          : null,
-        goals: goals.map((goal) => toGoalDto(goal as GoalRow, lifeGoal?.primaryGoalId ?? null)),
-      } satisfies GoalTreeResponse
-    },
+    readTree,
 
     async upsertLifeGoal(userId, title) {
       const lifeGoal = await db.lifeGoal.upsert({
@@ -332,6 +334,9 @@ export function createPrismaGoalsRepository(db: DbClient): GoalsRepository {
     async deleteGoal(userId, goalId) {
       const deleted = await db.goal.deleteMany({ where: { id: goalId, userId } })
       if (deleted.count === 0) throw new GoalsFailure('not_found', 'Goal not found')
+      // The tree, not nothing: deleting a goal can also clear the primary pointer, and the
+      // client would otherwise have to guess whether it did.
+      return readTree(userId)
     },
 
     async createStage(userId, goalId, input: CreateStageRequest) {

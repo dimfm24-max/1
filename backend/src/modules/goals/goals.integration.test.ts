@@ -182,7 +182,9 @@ maybeDescribe('goals API integration', () => {
     ).json()
     await addSteps(owner, staged.goal.stages[0].id, ['Шаг'])
 
-    expect((await request(owner, 'DELETE', `/api/goals/goals/${goal.goal.id}`)).status).toBe(204)
+    const afterDelete = await request(owner, 'DELETE', `/api/goals/goals/${goal.goal.id}`)
+    expect(afterDelete.status).toBe(200)
+    expect(((await afterDelete.json()) as { goals: unknown[] }).goals).toEqual([])
 
     expect(await prisma.goalStep.count()).toBe(0)
     expect(await prisma.goalStage.count()).toBe(0)

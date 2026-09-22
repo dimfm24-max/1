@@ -1,6 +1,7 @@
 import {
   Home01Icon,
   Settings01Icon,
+  Target02Icon,
   UserIcon,
 } from '@hugeicons/core-free-icons'
 import { useLocation } from '@tanstack/react-router'
@@ -17,6 +18,7 @@ import { homePath, workspaceNavigationItems } from '@/features/navigation'
 
 const iconsByPath = {
   '/app': Home01Icon,
+  '/app/goals': Target02Icon,
   '/app/profile': UserIcon,
   '/app/settings': Settings01Icon,
 } as const

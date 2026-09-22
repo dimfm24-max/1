@@ -164,7 +164,10 @@ const deleteGoalRoute = createRoute({
   request: { params: goalIdParamsSchema },
   responses: {
     ...goalErrors,
-    204: { description: 'The goal and everything under it are gone' },
+    200: {
+      content: { 'application/json': { schema: goalTreeResponseSchema } },
+      description: 'The tree without that goal, and without it as the primary one',
+    },
   },
 })
 
@@ -290,8 +293,10 @@ export function createGoalsRoutes({ requireAuth, service }: CreateGoalsRoutesOpt
   })
 
   routes.openapi(deleteGoalRoute, async (c) => {
-    await executeGoals(() => service.deleteGoal(c.var.user, c.req.valid('param').goalId))
-    return c.body(null, 204)
+    const tree = await executeGoals(() =>
+      service.deleteGoal(c.var.user, c.req.valid('param').goalId),
+    )
+    return c.json(tree, 200)
   })
 
   routes.openapi(createStageRoute, async (c) => {
