@@ -126,7 +126,13 @@ const deleteTaskRoute = createRoute({
   path: '/tasks/{taskId}',
   security: bearerSecurity,
   request: { params: taskIdParamsSchema },
-  responses: { ...withNotFound, 204: { description: 'The task is gone' } },
+  responses: {
+    ...withNotFound,
+    200: {
+      content: { 'application/json': { schema: dayResponseSchema } },
+      description: 'The day without that task',
+    },
+  },
 })
 
 const createSubtaskRoute = createRoute({
@@ -298,8 +304,10 @@ export function createDayRoutes({ requireAuth, service }: CreateDayRoutesOptions
   })
 
   routes.openapi(deleteTaskRoute, async (c) => {
-    await executeDay(() => service.deleteTask(c.var.user, c.req.valid('param').taskId))
-    return c.body(null, 204)
+    const day = await executeDay(() =>
+      service.deleteTask(c.var.user, c.req.valid('param').taskId),
+    )
+    return c.json(day, 200)
   })
 
   routes.openapi(createSubtaskRoute, async (c) => {

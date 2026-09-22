@@ -19,6 +19,7 @@ import {
   useAuth,
 } from '@/features/auth'
 import { homePath, safeReturnPath } from '@/features/navigation'
+import { DayPage } from '@/features/day'
 import { GoalsPage } from '@/features/goals'
 import { UserHome, UserProfile, UserSettings } from '@/features/users'
 
@@ -90,6 +91,10 @@ export function ResetPasswordPage() {
 export function UserHomePage() {
   const user = useWorkspaceUser()
   return <UserHome user={user} />
+}
+
+export function UserDayPage() {
+  return <DayPage />
 }
 
 export function UserGoalsPage() {

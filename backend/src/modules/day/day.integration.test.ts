@@ -16,6 +16,7 @@ type TaskView = {
   durationMinutes: number
   completedAt: string | null
   stepId: string | null
+  categoryId: string | null
   subtasks: Array<{ id: string; completedAt: string | null }>
 }
 
@@ -264,6 +265,7 @@ maybeDescribe('day API integration', () => {
       (await request(stranger, 'PATCH', `/api/day/tasks/${task.id}`, { title: 'Чужое' })).status,
     ).toBe(404)
     expect((await request(stranger, 'DELETE', `/api/day/tasks/${task.id}`)).status).toBe(404)
+    expect((await json(await request(owner, 'DELETE', `/api/day/tasks/${task.id}`))).tasks).toEqual([])
   })
 
   test('the day requires a session', async () => {
@@ -312,8 +314,23 @@ maybeDescribe('day API integration', () => {
     return (await response.json()).task as TaskView
   }
 
-  async function json(response: Response) {
-    return (await response.json()) as never
+  // The shapes these tests read. Written as one type rather than per call so a typo in a field
+  // name fails here instead of quietly reading undefined.
+  async function json(response: Response): Promise<{
+    settings: {
+      dayStartMinute: number
+      defaultTaskMinutes: number
+      tone: string
+      birthDate: string | null
+      lifeExpectancy: number | null
+    }
+    task: TaskView
+    tasks: TaskView[]
+    templates: Array<{ id: string }>
+    categories: Array<{ id: string }>
+    goal: { id: string; stages: Array<{ id: string; steps: Array<{ id: string }> }> }
+  }> {
+    return response.json()
   }
 
   function request(

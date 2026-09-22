@@ -1,4 +1,5 @@
 import {
+  Calendar03Icon,
   Home01Icon,
   Settings01Icon,
   Target02Icon,
@@ -18,6 +19,7 @@ import { homePath, workspaceNavigationItems } from '@/features/navigation'
 
 const iconsByPath = {
   '/app': Home01Icon,
+  '/app/day': Calendar03Icon,
   '/app/goals': Target02Icon,
   '/app/profile': UserIcon,
   '/app/settings': Settings01Icon,

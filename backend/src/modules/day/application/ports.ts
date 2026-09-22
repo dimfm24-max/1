@@ -34,7 +34,7 @@ export type DayRepository = {
     now: Date,
   ): Promise<TaskDto>
   resolveTask(userId: string, taskId: string, input: ResolveTaskRequest): Promise<TaskDto>
-  deleteTask(userId: string, taskId: string): Promise<void>
+  deleteTask(userId: string, taskId: string): Promise<DayResponse>
 
   createSubtask(userId: string, taskId: string, input: CreateSubtaskRequest): Promise<TaskDto>
   updateSubtask(

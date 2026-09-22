@@ -2,7 +2,7 @@
 // syntax (`$param` segments). This is the return-path allow-list: a protected route survives the
 // login round-trip whether or not the sidebar links to it. `tests/navigation.test.ts` fails when
 // this table and the router drift apart.
-export const workspaceRoutes = ['/app', '/app/goals', '/app/profile', '/app/settings'] as const
+export const workspaceRoutes = ['/app', '/app/day', '/app/goals', '/app/profile', '/app/settings'] as const
 
 type WorkspaceRouteTable = ReadonlyArray<string>
 
@@ -14,6 +14,7 @@ export type WorkspaceRoutePath = StaticPath<(typeof workspaceRoutes)[number]>
 // The sidebar menu is a presentation subset of the workspace routes; the type keeps it one.
 const navigationItems = [
   { label: 'Home', to: '/app' },
+  { label: 'Day', to: '/app/day' },
   { label: 'Goals', to: '/app/goals' },
   { label: 'Profile', to: '/app/profile' },
   { label: 'Settings', to: '/app/settings' },

@@ -262,8 +262,11 @@ export function createPrismaDayRepository(db: DbClient): DayRepository {
     },
 
     async deleteTask(userId, taskId) {
-      const deleted = await db.task.deleteMany({ where: { id: taskId, userId } })
-      if (deleted.count === 0) throw new DayFailure('not_found', 'Task not found')
+      const task = await taskOrFail(userId, taskId)
+      await db.task.delete({ where: { id: taskId } })
+      // The day, not nothing: the screen re-renders from one response instead of guessing what
+      // the deletion left behind.
+      return readDay(userId, fromDayDate(task.scheduledOn))
     },
 
     async createSubtask(userId, taskId, input: CreateSubtaskRequest) {
