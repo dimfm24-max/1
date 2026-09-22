@@ -21,6 +21,7 @@ import {
 import { homePath, safeReturnPath } from '@/features/navigation'
 import { DayPage } from '@/features/day'
 import { GoalsPage } from '@/features/goals'
+import { LandingPage } from '@/features/landing'
 import { HabitsPage } from '@/features/habits'
 import { HorizonPage } from '@/features/horizon'
 import { CalendarPage } from '@/features/calendar'
@@ -44,10 +45,9 @@ export function HomePage() {
       />
     )
   }
-  const destination = returnTo
-    ? `/login?returnTo=${encodeURIComponent(returnTo)}`
-    : '/login'
-  return <HrefRedirect href={destination} />
+  // A visitor who has never seen DiLife gets the explanation, not a login form: the four
+  // levels are the product, and a password field explains none of them.
+  return <LandingPage returnTo={returnTo} />
 }
 
 export function LoginPage() {
