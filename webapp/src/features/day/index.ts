@@ -1,5 +1,11 @@
 export { DayPage } from './pages'
-export { dayContextQueryOptions, dayQueryKeys, dayQueryOptions } from './queries'
+export {
+  dayContextQueryOptions,
+  dayQueryKeys,
+  dayQueryOptions,
+  useDayContextQuery,
+  useUpdateSettingsMutation,
+} from './queries'
 export {
   countDay,
   formatDayHeading,

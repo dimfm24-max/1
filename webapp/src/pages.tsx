@@ -22,6 +22,7 @@ import { homePath, safeReturnPath } from '@/features/navigation'
 import { DayPage } from '@/features/day'
 import { GoalsPage } from '@/features/goals'
 import { HabitsPage } from '@/features/habits'
+import { HorizonPage } from '@/features/horizon'
 import { UserHome, UserProfile, UserSettings } from '@/features/users'
 
 export function HomePage() {
@@ -104,6 +105,10 @@ export function UserGoalsPage() {
 
 export function UserHabitsPage() {
   return <HabitsPage />
+}
+
+export function UserHorizonPage() {
+  return <HorizonPage />
 }
 
 export function UserProfilePage() {
