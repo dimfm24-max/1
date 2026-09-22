@@ -40,6 +40,10 @@ model User {
   dayTemplates        DayTemplate[]
   dayTemplateItems    DayTemplateItem[]
 
+  // Habits; remove together with prisma/schema/habits.prisma.
+  habits              Habit[]
+  habitMarks          HabitMark[]
+
   @@map("users")
 }
 

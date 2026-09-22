@@ -21,6 +21,7 @@ import {
 import { homePath, safeReturnPath } from '@/features/navigation'
 import { DayPage } from '@/features/day'
 import { GoalsPage } from '@/features/goals'
+import { HabitsPage } from '@/features/habits'
 import { UserHome, UserProfile, UserSettings } from '@/features/users'
 
 export function HomePage() {
@@ -99,6 +100,10 @@ export function UserDayPage() {
 
 export function UserGoalsPage() {
   return <GoalsPage />
+}
+
+export function UserHabitsPage() {
+  return <HabitsPage />
 }
 
 export function UserProfilePage() {

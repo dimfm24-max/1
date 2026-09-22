@@ -1,6 +1,7 @@
 import {
   Calendar03Icon,
   Home01Icon,
+  RepeatIcon,
   Settings01Icon,
   Target02Icon,
   UserIcon,
@@ -21,6 +22,7 @@ const iconsByPath = {
   '/app': Home01Icon,
   '/app/day': Calendar03Icon,
   '/app/goals': Target02Icon,
+  '/app/habits': RepeatIcon,
   '/app/profile': UserIcon,
   '/app/settings': Settings01Icon,
 } as const
