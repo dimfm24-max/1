@@ -41,10 +41,14 @@ export const backgroundJobs = {
     console.log('Job notifications:process completed.', { outbox, receipts })
   },
   'auth:sessions:cleanup': async (runtime, now) => {
-    const { passwordResetTokensDeleted, rateLimitWindowsDeleted, sessionsDeleted } =
-      await cleanupAuthState(runtime, now)
+    const {
+      emailVerificationTokensDeleted,
+      passwordResetTokensDeleted,
+      rateLimitWindowsDeleted,
+      sessionsDeleted,
+    } = await cleanupAuthState(runtime, now)
     console.log(
-      `Job auth:sessions:cleanup removed ${sessionsDeleted} stale sessions, ${passwordResetTokensDeleted} expired password reset tokens and ${rateLimitWindowsDeleted} spent rate-limit windows.`,
+      `Job auth:sessions:cleanup removed ${sessionsDeleted} stale sessions, ${passwordResetTokensDeleted} expired password reset tokens, ${emailVerificationTokensDeleted} expired email confirmation links and ${rateLimitWindowsDeleted} spent rate-limit windows.`,
     )
   },
   'uploads:pending:cleanup': async ({ prisma, privateStorage }, now) => {
@@ -81,13 +85,29 @@ export const backgroundJobs = {
     )
   },
   'maintenance:process': async (runtime, now) => {
-    const { passwordResetTokensDeleted, rateLimitWindowsDeleted, sessionsDeleted } =
-      await cleanupAuthState(runtime, now)
+    const {
+      emailVerificationTokensDeleted,
+      passwordResetTokensDeleted,
+      rateLimitWindowsDeleted,
+      sessionsDeleted,
+    } = await cleanupAuthState(runtime, now)
     const terminalNotificationOutboxesRedacted = await (
       await loadNotificationsModule(runtime)
     ).redactTerminalData()
+    // The trash keeps things 30 days (task 11). Swept here rather than on a schedule of its own:
+    // on Yandex Cloud every schedule is a container with its own timer.
+    const { purgeExpiredTrashItems } = await import('./modules/trash')
+    const trashItemsPurged = await purgeExpiredTrashItems(runtime.prisma, now)
+    // Repeats and scheduled templates fill the coming days here too, so reminders and the
+    // calendar see occurrences no one has opened yet (tasks 17, 18).
+    const { materializeUpcomingPlans } = await import('./modules/day')
+    const plans = await materializeUpcomingPlans(runtime.prisma, now)
     console.log('Job maintenance:process completed.', {
       authSessionsDeleted: sessionsDeleted,
+      trashItemsPurged,
+      repeatOccurrencesMade: plans.occurrences,
+      templatesApplied: plans.templates,
+      emailVerificationTokensDeleted,
       passwordResetTokensDeleted,
       rateLimitWindowsDeleted,
       terminalNotificationOutboxesRedacted,
@@ -152,7 +172,7 @@ async function cleanupAuthState({ env, prisma }: BackendRuntime, now: Date) {
           AND session."created_at" > ${absoluteSessionNotBefore}
       )
   `
-  const [sessions, passwordResetTokens, rateLimitWindows] = await Promise.all([
+  const [sessions, passwordResetTokens, emailVerificationTokens, rateLimitWindows] = await Promise.all([
     prisma.authSession.deleteMany({
       where: {
         OR: [
@@ -165,6 +185,9 @@ async function cleanupAuthState({ env, prisma }: BackendRuntime, now: Date) {
     prisma.passwordResetToken.deleteMany({
       where: { expiresAt: { lt: now } },
     }),
+    prisma.emailVerificationToken.deleteMany({
+      where: { expiresAt: { lt: now } },
+    }),
     // A rate-limit window past its end is never read again - every request looks up the window
     // containing its own clock - so the rows are pure weight. Only RATE_LIMIT_STORE=database
     // writes them; elsewhere this sweeps an empty table.
@@ -173,6 +196,7 @@ async function cleanupAuthState({ env, prisma }: BackendRuntime, now: Date) {
     }),
   ])
   return {
+    emailVerificationTokensDeleted: emailVerificationTokens.count,
     passwordResetTokensDeleted: passwordResetTokens.count,
     rateLimitWindowsDeleted: rateLimitWindows.count,
     sessionsDeleted: sessions.count,

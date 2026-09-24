@@ -1,6 +1,7 @@
 import type { HabitDto } from '@dilife/contracts'
 
 import { shiftDay } from '@/features/day'
+import { formatCount } from '@/platform/intl'
 
 /** A day in the strip: whether the habit was due, whether it was kept, and how to label it. */
 export type HabitDay = {
@@ -60,12 +61,7 @@ function daysBetween(from: string, to: string) {
 /** Russian day agreement for a streak: 1 день, 2 дня, 5 дней. */
 export function formatStreak(days: number): string {
   if (days === 0) return 'серия прервана'
-  const tail = days % 100
-  if (tail >= 11 && tail <= 14) return `${days} дней подряд`
-  const last = days % 10
-  if (last === 1) return `${days} день подряд`
-  if (last >= 2 && last <= 4) return `${days} дня подряд`
-  return `${days} дней подряд`
+  return `${formatCount(days, ['день', 'дня', 'дней'])} подряд`
 }
 
 export function describeSchedule(habit: HabitDto): string {
@@ -75,4 +71,18 @@ export function describeSchedule(habit: HabitDto): string {
     return days.length === 0 ? 'дни не выбраны' : days.join(', ')
   }
   return habit.intervalDays === 1 ? 'каждый день' : `каждые ${habit.intervalDays} дн.`
+}
+
+/**
+ * The habits worth showing off: active ones, longest current run first, ties kept in the
+ * person's own order. Archived habits keep their history but no longer ask for attention.
+ */
+export function topStreaks(habits: ReadonlyArray<HabitDto>, limit: number): HabitDto[] {
+  return habits
+    .filter((habit) => habit.archivedAt === null)
+    .toSorted(
+      (left, right) =>
+        right.currentStreak - left.currentStreak || left.position - right.position,
+    )
+    .slice(0, limit)
 }

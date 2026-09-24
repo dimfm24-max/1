@@ -5,29 +5,36 @@ import type {
 } from '@dilife/contracts'
 
 import type { AuthenticatedPrincipal } from '../../auth'
+import type { SettingsReader } from '../../settings'
 import type { Clock, HabitsRepository } from './ports'
 
 type HabitsServiceDependencies = {
   clock: Clock
   repository: HabitsRepository
+  settings: SettingsReader
 }
 
 /**
- * Coordination only. Streaks need to know what "today" is, and the client says so: the person's
- * own day boundary decides whether a habit is still open, not the server's time zone.
+ * Coordination only. Streaks need to know what "today" is, and the settings module answers by
+ * the person's own zone and day start, not by the server clock or the browser's.
  */
 export class HabitsService {
   constructor(private readonly dependencies: HabitsServiceDependencies) {}
 
-  async list(principal: AuthenticatedPrincipal, today: string) {
+  private today(principal: AuthenticatedPrincipal) {
+    return this.dependencies.settings.today(principal.id)
+  }
+
+  async list(principal: AuthenticatedPrincipal) {
+    const today = await this.today(principal)
     return { habits: await this.dependencies.repository.list(principal.id, today) }
   }
 
   async create(
     principal: AuthenticatedPrincipal,
     input: CreateHabitRequest,
-    today: string,
   ) {
+    const today = await this.today(principal)
     return { habit: await this.dependencies.repository.create(principal.id, input, today) }
   }
 
@@ -35,8 +42,8 @@ export class HabitsService {
     principal: AuthenticatedPrincipal,
     habitId: string,
     input: UpdateHabitRequest,
-    today: string,
   ) {
+    const today = await this.today(principal)
     return {
       habit: await this.dependencies.repository.update(
         principal.id,
@@ -52,12 +59,20 @@ export class HabitsService {
     principal: AuthenticatedPrincipal,
     habitId: string,
     input: MarkHabitRequest,
-    today: string,
   ) {
+    const today = await this.today(principal)
     return { habit: await this.dependencies.repository.mark(principal.id, habitId, input, today) }
   }
 
-  async remove(principal: AuthenticatedPrincipal, habitId: string, today: string) {
-    return { habits: await this.dependencies.repository.remove(principal.id, habitId, today) }
+  async remove(principal: AuthenticatedPrincipal, habitId: string) {
+    const today = await this.today(principal)
+    return {
+      habits: await this.dependencies.repository.remove(
+        principal.id,
+        habitId,
+        today,
+        this.dependencies.clock.now(),
+      ),
+    }
   }
 }

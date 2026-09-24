@@ -80,6 +80,10 @@ const envSchema = z.object({
   INGRESS_RATE_LIMIT_PROVIDER: z.enum(['local', 'yandex-sws']).default('local'),
   AUTH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(60),
   AUTH_RATE_LIMIT_WINDOW_SECONDS: z.coerce.number().int().positive().default(60),
+  // The signed-in data API: the day, goals, habits and the rest. A planner is used in bursts -
+  // ticking steps, dragging tasks, every screen loading its own data - so it needs far more room
+  // than signing in, which stays at AUTH_RATE_LIMIT_MAX. Same window.
+  API_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(600),
   // Where the auth and admin limiters count. `memory` is one process's own table and the whole
   // truth while one API instance serves every request: DigitalOcean's launch profile, an own
   // server, local development. `database` counts in PostgreSQL through one upsert per limited

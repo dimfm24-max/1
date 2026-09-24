@@ -9,6 +9,7 @@ import { createPrismaAuthRepository } from './infrastructure/auth-repository'
 import { signAccessToken, verifyAccessToken } from './infrastructure/access-tokens'
 import { hashPassword, verifyPassword } from './infrastructure/passwords'
 import { createPasswordResetNotifier } from './infrastructure/password-reset-notifier'
+import { createEmailVerificationTaskQueue } from './infrastructure/email-verification-task-queue'
 import { createPasswordResetTaskQueue } from './infrastructure/password-reset-task-queue'
 import {
   createPasswordResetToken,
@@ -73,6 +74,7 @@ export function createAuthTasks(runtime: BackendRuntime) {
   })
 
   return {
+    deliverEmailVerification: service.deliverEmailVerification.bind(service),
     deliverPasswordChanged: service.deliverPasswordChanged.bind(service),
     deliverPasswordReset: service.deliverPasswordReset.bind(service),
   }
@@ -91,6 +93,13 @@ function buildAuthService({
       verify: (token) => verifyAccessToken(token, env),
     },
     clock,
+    emailVerificationTasks: createEmailVerificationTaskQueue(db, {
+      pendingLimit: drainPassCapacity(env),
+    }),
+    emailVerificationTokens: {
+      create: createPasswordResetToken,
+      hash: hashPasswordResetToken,
+    },
     logoutCleanup,
     passwordResetCooldownSeconds,
     passwordResetNotifier: createPasswordResetNotifier(

@@ -52,7 +52,8 @@ export const statisticsResponseSchema = z
 export const statisticsQuerySchema = z
   .object({
     period: statisticsPeriodSchema.default('week'),
-    today: dayDateSchema,
+    /** Ignored: the server works the day out from the person's settings. Kept for old tabs. */
+    today: dayDateSchema.optional(),
   })
   .strict()
 

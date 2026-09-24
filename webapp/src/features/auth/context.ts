@@ -25,6 +25,10 @@ export type AuthContextValue = {
   logout: () => Promise<void>
   requestPasswordReset: (input: PasswordResetRequest) => Promise<void>
   confirmPasswordReset: (input: PasswordResetConfirmRequest) => Promise<void>
+  /** Spends the token from the confirmation letter. Needs no session. */
+  confirmEmailVerification: (token: string) => Promise<void>
+  /** One more confirmation letter to the signed-in person's address. */
+  requestEmailVerification: () => Promise<void>
 }
 
 export const AuthContext = createContext<AuthContextValue | null>(null)

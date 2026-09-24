@@ -7,6 +7,10 @@ export type GoalsFailureKind =
   | 'progress_not_manual'
   /** A closed goal is read-only: reopening is a separate, deliberate act. */
   | 'goal_closed'
+  /** A deadline earlier than the person's today. */
+  | 'deadline_in_past'
+  /** A request the contract lets through but the stored goal makes wrong: a bad reorder, a target equal to the start. */
+  | 'invalid_input'
 
 export class GoalsFailure extends Error {
   constructor(

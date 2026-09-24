@@ -9,7 +9,8 @@ import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/
 import { Input } from '@/components/ui/input'
 import { NativeSelect } from '@/components/ui/native-select'
 import { Spinner } from '@/components/ui/spinner'
-import { toDayDate } from '@/features/day'
+import { useToday } from '@/features/settings'
+import { formatDate } from '@/platform/intl'
 import { describeSchedule, formatStreak, habitStrip } from './habit-view'
 import {
   useCreateHabitMutation,
@@ -18,9 +19,10 @@ import {
   useMarkHabitMutation,
   useUpdateHabitMutation,
 } from './queries'
+import { useTrashedNotice } from '@/features/trash'
 
 export function HabitsPage() {
-  const [today] = useState(() => toDayDate(new Date()))
+  const { today } = useToday()
   const habits = useHabitsQuery(today)
 
   if (habits.isPending) {
@@ -35,7 +37,7 @@ export function HabitsPage() {
     return (
       <Alert data-testid="habits-error" variant="destructive">
         <AlertTitle>Не удалось загрузить привычки</AlertTitle>
-        <AlertDescription>Проверьте соединение и обновите страницу.</AlertDescription>
+        <AlertDescription>Проверь интернет и обнови страницу.</AlertDescription>
       </Alert>
     )
   }
@@ -80,6 +82,7 @@ function HabitCard({ habit, today }: { habit: HabitDto; today: string }) {
   const mark = useMarkHabitMutation(today)
   const update = useUpdateHabitMutation(today)
   const remove = useDeleteHabitMutation(today)
+  const notifyTrashed = useTrashedNotice()
   const isArchived = habit.archivedAt !== null
 
   return (
@@ -104,7 +107,7 @@ function HabitCard({ habit, today }: { habit: HabitDto; today: string }) {
           {strip.map((day) => (
             <li key={day.date}>
               <button
-                aria-label={`${habit.title}, ${day.date}`}
+                aria-label={`${habit.title}, ${formatDate(day.date)}`}
                 aria-pressed={day.isDone}
                 className={stripSquareClass(day.isDue, day.isDone, day.isToday)}
                 data-testid={`habit-day-${habit.id}-${day.date}`}
@@ -135,7 +138,11 @@ function HabitCard({ habit, today }: { habit: HabitDto; today: string }) {
           </Button>
           <Button
             data-testid={`habit-delete-${habit.id}`}
-            onClick={() => remove.mutate(habit.id)}
+            onClick={() =>
+              remove.mutate(habit.id, {
+                onSuccess: () => notifyTrashed('habit', habit.id, `Привычка «${habit.title}»`),
+              })
+            }
             size="sm"
             type="button"
             variant="ghost"
@@ -188,44 +195,52 @@ function NewHabitForm({ today }: { today: string }) {
           Серия считается только по дням, когда привычка ожидалась.
         </CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-end">
-        <Input
-          aria-label="Название привычки"
-          className="flex-1"
-          data-testid="habit-title"
-          maxLength={200}
-          onChange={(event) => setTitle(event.target.value)}
-          placeholder="Например: зарядка"
-          value={title}
-        />
-        <NativeSelect
-          aria-label="Как часто"
-          data-testid="habit-schedule"
-          onChange={(event) => setSchedule(event.target.value === 'interval' ? 'interval' : 'daily')}
-          value={schedule}
+      <CardContent>
+        <form
+          className="flex flex-col gap-3 sm:flex-row sm:items-end"
+          onSubmit={(event) => {
+            event.preventDefault()
+            submit()
+          }}
         >
-          <option value="daily">Каждый день</option>
-          <option value="interval">Через несколько дней</option>
-        </NativeSelect>
-        {schedule === 'interval' ? (
           <Input
-            aria-label="Раз в сколько дней"
-            data-testid="habit-interval"
-            max={365}
-            min={1}
-            onChange={(event) => setIntervalDays(event.target.value)}
-            type="number"
-            value={intervalDays}
+            aria-label="Название привычки"
+            className="sm:flex-1"
+            data-testid="habit-title"
+            maxLength={200}
+            onChange={(event) => setTitle(event.target.value)}
+            placeholder="Например: зарядка"
+            value={title}
           />
-        ) : null}
-        <Button
-          data-testid="habit-submit"
-          disabled={title.trim() === '' || mutation.isPending}
-          onClick={submit}
-          type="button"
-        >
-          Создать
-        </Button>
+          <NativeSelect
+            aria-label="Как часто"
+            data-testid="habit-schedule"
+            onChange={(event) => setSchedule(event.target.value === 'interval' ? 'interval' : 'daily')}
+            value={schedule}
+          >
+            <option value="daily">Каждый день</option>
+            <option value="interval">Через несколько дней</option>
+          </NativeSelect>
+          {schedule === 'interval' ? (
+            <Input
+              aria-label="Раз в сколько дней"
+              className="sm:w-24"
+              data-testid="habit-interval"
+              max={365}
+              min={1}
+              onChange={(event) => setIntervalDays(event.target.value)}
+              type="number"
+              value={intervalDays}
+            />
+          ) : null}
+          <Button
+            data-testid="habit-submit"
+            disabled={title.trim() === '' || mutation.isPending}
+            type="submit"
+          >
+            Создать
+          </Button>
+        </form>
       </CardContent>
     </Card>
   )

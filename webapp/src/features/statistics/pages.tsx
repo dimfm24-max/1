@@ -7,7 +7,9 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { Spinner } from '@/components/ui/spinner'
-import { formatDuration, toDayDate } from '@/features/day'
+import { formatDuration } from '@/features/day'
+import { useToday } from '@/features/settings'
+import { formatDate } from '@/platform/intl'
 import { useStatisticsQuery } from './queries'
 
 const periodLabels: Record<StatisticsPeriod, string> = {
@@ -17,7 +19,7 @@ const periodLabels: Record<StatisticsPeriod, string> = {
 }
 
 export function StatisticsPage() {
-  const [today] = useState(() => toDayDate(new Date()))
+  const { today } = useToday()
   const [period, setPeriod] = useState<StatisticsPeriod>('week')
   const statistics = useStatisticsQuery(period, today)
 
@@ -50,7 +52,7 @@ export function StatisticsPage() {
       ) : statistics.isError ? (
         <Alert data-testid="statistics-error" variant="destructive">
           <AlertTitle>Не удалось загрузить статистику</AlertTitle>
-          <AlertDescription>Проверьте соединение и обновите страницу.</AlertDescription>
+          <AlertDescription>Проверь интернет и обнови страницу.</AlertDescription>
         </Alert>
       ) : (
         <StatisticsBody statistics={statistics.data} />
@@ -70,10 +72,10 @@ function StatisticsBody({ statistics }: { statistics: StatisticsResponse }) {
       <Card data-testid="statistics-totals">
         <CardHeader className="gap-2">
           <Typography as="h2" variant="h6">
-            {statistics.from} — {statistics.to}
+            {formatDate(statistics.from)} — {formatDate(statistics.to)}
           </Typography>
           <CardDescription>
-            Сделано {totals.done} · отпущено {totals.burned} · осталось {totals.planned} ·{' '}
+            Сделано {totals.done} · сгорело {totals.burned} · осталось {totals.planned} ·{' '}
             {formatDuration(totals.doneMinutes)} работы · дней с делами: {totals.activeDays}
           </CardDescription>
           <Progress aria-label="Доля доведённого до конца" value={donePercent} />

@@ -48,7 +48,7 @@ export const createHabitRequestSchema = z
   .strict()
   .refine(
     (value) => value.schedule !== 'weekdays' || (value.weekdays?.length ?? 0) > 0,
-    { message: 'Pick at least one weekday', path: ['weekdays'] },
+    { message: 'Выбери хотя бы один день недели', path: ['weekdays'] },
   )
 
 export const updateHabitRequestSchema = z

@@ -3,6 +3,7 @@ import type {
   CreateGoalRequest,
   CreateStageRequest,
   CreateStepRequest,
+  DeleteLifeGoalRequest,
   RecordGoalProgressRequest,
   UpdateGoalRequest,
   UpdateStageRequest,
@@ -10,17 +11,18 @@ import type {
 } from '@dilife/contracts'
 
 import type { AuthenticatedPrincipal } from '../../auth'
-import type { Clock, GoalsRepository } from './ports'
+import type { Clock, GoalsRepository, TodayReader } from './ports'
 
 type GoalsServiceDependencies = {
   clock: Clock
   repository: GoalsRepository
+  today: TodayReader
 }
 
 /**
  * Coordination only: the repository owns ownership filtering and the writes themselves, the
- * domain owns the arithmetic. What lives here is the order of operations and the clock, so that
- * "closed at" and "completed at" come from one source rather than from each call site.
+ * domain owns the arithmetic. What lives here is the order of operations, the clock and the
+ * person's "today", so that "closed at" and "not in the past" come from one source.
  */
 export class GoalsService {
   constructor(private readonly dependencies: GoalsServiceDependencies) {}
@@ -35,8 +37,17 @@ export class GoalsService {
     }
   }
 
+  deleteLifeGoal(principal: AuthenticatedPrincipal, input: DeleteLifeGoalRequest) {
+    return this.dependencies.repository.deleteLifeGoal(
+      principal.id,
+      input.goals,
+      this.dependencies.clock.now(),
+    )
+  }
+
   async createGoal(principal: AuthenticatedPrincipal, input: CreateGoalRequest) {
-    return { goal: await this.dependencies.repository.createGoal(principal.id, input) }
+    const today = await this.dependencies.today(principal.id)
+    return { goal: await this.dependencies.repository.createGoal(principal.id, input, today) }
   }
 
   async updateGoal(
@@ -44,7 +55,10 @@ export class GoalsService {
     goalId: string,
     input: UpdateGoalRequest,
   ) {
-    return { goal: await this.dependencies.repository.updateGoal(principal.id, goalId, input) }
+    const today = await this.dependencies.today(principal.id)
+    return {
+      goal: await this.dependencies.repository.updateGoal(principal.id, goalId, input, today),
+    }
   }
 
   async recordProgress(
@@ -58,6 +72,12 @@ export class GoalsService {
         goalId,
         input.currentValue,
       ),
+    }
+  }
+
+  async readProgressHistory(principal: AuthenticatedPrincipal, goalId: string) {
+    return {
+      entries: await this.dependencies.repository.readProgressHistory(principal.id, goalId),
     }
   }
 
@@ -81,11 +101,13 @@ export class GoalsService {
     goalId: string,
     input: { deadline: string },
   ) {
+    const today = await this.dependencies.today(principal.id)
     return {
       goal: await this.dependencies.repository.reopenGoal(
         principal.id,
         goalId,
-        new Date(input.deadline),
+        input.deadline,
+        today,
       ),
     }
   }
@@ -95,7 +117,11 @@ export class GoalsService {
   }
 
   deleteGoal(principal: AuthenticatedPrincipal, goalId: string) {
-    return this.dependencies.repository.deleteGoal(principal.id, goalId)
+    return this.dependencies.repository.trashGoal(
+      principal.id,
+      goalId,
+      this.dependencies.clock.now(),
+    )
   }
 
   async createStage(
@@ -115,7 +141,17 @@ export class GoalsService {
   }
 
   async deleteStage(principal: AuthenticatedPrincipal, stageId: string) {
-    return { goal: await this.dependencies.repository.deleteStage(principal.id, stageId) }
+    return {
+      goal: await this.dependencies.repository.trashStage(
+        principal.id,
+        stageId,
+        this.dependencies.clock.now(),
+      ),
+    }
+  }
+
+  async reorderStages(principal: AuthenticatedPrincipal, goalId: string, ids: string[]) {
+    return { goal: await this.dependencies.repository.reorderStages(principal.id, goalId, ids) }
   }
 
   async createStep(
@@ -142,6 +178,16 @@ export class GoalsService {
   }
 
   async deleteStep(principal: AuthenticatedPrincipal, stepId: string) {
-    return { goal: await this.dependencies.repository.deleteStep(principal.id, stepId) }
+    return {
+      goal: await this.dependencies.repository.trashStep(
+        principal.id,
+        stepId,
+        this.dependencies.clock.now(),
+      ),
+    }
+  }
+
+  async reorderSteps(principal: AuthenticatedPrincipal, stageId: string, ids: string[]) {
+    return { goal: await this.dependencies.repository.reorderSteps(principal.id, stageId, ids) }
   }
 }

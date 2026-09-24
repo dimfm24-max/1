@@ -21,3 +21,4 @@ export function createNotesModule(options: CreateNotesModuleOptions) {
 }
 
 export type { NotesRepository } from './application/ports'
+export { createNotesTrashSource } from './infrastructure/notes-trash'

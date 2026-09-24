@@ -7,7 +7,7 @@ import { Typography } from '@/components/typography'
 import { Button } from '@/components/ui/button'
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
-import { ApiRequestError } from '@/platform/api'
+import { describeApiError } from '@/platform/api'
 import { useAuth } from '../use-auth'
 import { FormAlert } from './form-errors'
 import type { FieldErrors } from './form-model'
@@ -61,7 +61,7 @@ export function RegisterForm({ returnTo }: { returnTo?: string }) {
         await auth.register(result.data as RegisterRequest)
       } catch (caughtError) {
         setFormError(
-          caughtError instanceof ApiRequestError ? caughtError.message : 'Unexpected auth error',
+          describeApiError(caughtError, 'Зарегистрироваться не получилось. Попробуй ещё раз.'),
         )
       }
     },
@@ -78,21 +78,22 @@ export function RegisterForm({ returnTo }: { returnTo?: string }) {
       <FieldGroup className="gap-5">
         <div className="flex flex-col items-center gap-1 text-center">
           <Typography as="h1" variant="h3" balance>
-            Create your account
+            Регистрация в DiLife
           </Typography>
           <Typography variant="bodySm" tone="muted" balance>
-            Fill in the form below to create your account
+            Заполни поля — и начнём
           </Typography>
         </div>
 
         <form.Field name="displayName" children={(field) => (
           <Field data-invalid={hasErrors(fieldErrors.displayName)}>
-            <FieldLabel htmlFor={displayNameId}>Full Name</FieldLabel>
+            <FieldLabel htmlFor={displayNameId}>Имя</FieldLabel>
             <Input
               aria-describedby={errorId(fieldErrors.displayName, displayNameErrorId)}
               aria-invalid={hasErrors(fieldErrors.displayName)}
               autoComplete="name"
               className="bg-background"
+              data-testid="signup-display-name"
               id={displayNameId}
               name={field.name}
               onBlur={field.handleBlur}
@@ -101,7 +102,7 @@ export function RegisterForm({ returnTo }: { returnTo?: string }) {
                 clearFieldError('displayName', setFieldErrors)
                 setFormError(null)
               }}
-              placeholder="John Doe"
+              placeholder="Как к тебе обращаться"
               type="text"
               value={field.state.value}
             />
@@ -111,12 +112,13 @@ export function RegisterForm({ returnTo }: { returnTo?: string }) {
 
         <form.Field name="email" children={(field) => (
           <Field data-invalid={hasErrors(fieldErrors.email)}>
-            <FieldLabel htmlFor={emailId}>Email</FieldLabel>
+            <FieldLabel htmlFor={emailId}>Почта</FieldLabel>
             <Input
               aria-describedby={errorId(fieldErrors.email, emailErrorId)}
               aria-invalid={hasErrors(fieldErrors.email)}
               autoComplete="email"
               className="bg-background"
+              data-testid="signup-email"
               id={emailId}
               inputMode="email"
               name={field.name}
@@ -126,18 +128,18 @@ export function RegisterForm({ returnTo }: { returnTo?: string }) {
                 clearFieldError('email', setFieldErrors)
                 setFormError(null)
               }}
-              placeholder="m@example.com"
+              placeholder="name@example.com"
               type="email"
               value={field.state.value}
             />
-            <FieldDescription>We&apos;ll use this to contact you.</FieldDescription>
+            <FieldDescription>На неё придёт письмо для подтверждения.</FieldDescription>
             <FieldError id={emailErrorId} errors={fieldErrors.email} />
           </Field>
         )} />
 
         <form.Field name="password" children={(field) => (
           <Field data-invalid={hasErrors(fieldErrors.password)}>
-            <FieldLabel htmlFor={passwordId}>Password</FieldLabel>
+            <FieldLabel htmlFor={passwordId}>Пароль</FieldLabel>
             <PasswordInput
               aria-describedby={[
                 passwordDescriptionId,
@@ -146,6 +148,7 @@ export function RegisterForm({ returnTo }: { returnTo?: string }) {
               aria-invalid={hasErrors(fieldErrors.password)}
               autoComplete="new-password"
               className="bg-background"
+              data-testid="signup-password"
               id={passwordId}
               name={field.name}
               onBlur={field.handleBlur}
@@ -155,10 +158,11 @@ export function RegisterForm({ returnTo }: { returnTo?: string }) {
                 clearFieldError('confirmPassword', setFieldErrors)
                 setFormError(null)
               }}
+              toggleTestId="signup-password-toggle"
               value={field.state.value}
             />
             <FieldDescription id={passwordDescriptionId}>
-              Must be at least 8 characters long.
+              Не короче 8 знаков.
             </FieldDescription>
             <FieldError id={passwordErrorId} errors={fieldErrors.password} />
           </Field>
@@ -166,12 +170,13 @@ export function RegisterForm({ returnTo }: { returnTo?: string }) {
 
         <form.Field name="confirmPassword" children={(field) => (
           <Field data-invalid={hasErrors(fieldErrors.confirmPassword)}>
-            <FieldLabel htmlFor={confirmPasswordId}>Confirm Password</FieldLabel>
+            <FieldLabel htmlFor={confirmPasswordId}>Пароль ещё раз</FieldLabel>
             <PasswordInput
               aria-describedby={errorId(fieldErrors.confirmPassword, confirmPasswordErrorId)}
               aria-invalid={hasErrors(fieldErrors.confirmPassword)}
               autoComplete="new-password"
               className="bg-background"
+              data-testid="signup-confirm-password"
               id={confirmPasswordId}
               name={field.name}
               onBlur={field.handleBlur}
@@ -181,9 +186,9 @@ export function RegisterForm({ returnTo }: { returnTo?: string }) {
                 setFormError(null)
               }}
               value={field.state.value}
-              visibilityLabel="password confirmation"
+              visibilityLabel="повтор пароля"
             />
-            <FieldDescription>Please confirm your password.</FieldDescription>
+            <FieldDescription>Чтобы не ошибиться при вводе.</FieldDescription>
             <FieldError id={confirmPasswordErrorId} errors={fieldErrors.confirmPassword} />
           </Field>
         )} />
@@ -192,16 +197,16 @@ export function RegisterForm({ returnTo }: { returnTo?: string }) {
 
         <Field>
           <form.Subscribe selector={(state) => state.isSubmitting} children={(isSubmitting) => (
-            <Button disabled={isSubmitting} type="submit">
-              {isSubmitting ? 'Creating account…' : 'Create Account'}
+            <Button data-testid="signup-submit" disabled={isSubmitting} type="submit">
+              {isSubmitting ? 'Создаём аккаунт…' : 'Создать аккаунт'}
             </Button>
           )} />
         </Field>
 
         <FieldDescription className="text-center">
-          Already have an account?{' '}
+          Уже есть аккаунт?{' '}
           <Link search={{ returnTo }} to="/login">
-            Sign in
+            Войти
           </Link>
         </FieldDescription>
       </FieldGroup>

@@ -1,21 +1,20 @@
 import {
-  Calendar03Icon,
-  Home01Icon,
-  ChartLineData01Icon,
   Calendar01Icon,
-  Link01Icon,
+  ChartLineData01Icon,
+  HourglassIcon,
   Note01Icon,
-  ClockIcon,
   RepeatIcon,
   Settings01Icon,
+  Sun03Icon,
   Target02Icon,
-  UserIcon,
+  TaskDaily01Icon,
 } from '@hugeicons/core-free-icons'
 import { useLocation } from '@tanstack/react-router'
 import type { UserDto } from '@dilife/contracts'
-import type { PropsWithChildren } from 'react'
+import type { PropsWithChildren, ReactNode } from 'react'
 
 import {
+  AccountMenu,
   AppSidebar,
   type DashboardNavigationItem,
   SiteHeader,
@@ -24,16 +23,14 @@ import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { homePath, workspaceNavigationItems } from '@/features/navigation'
 
 const iconsByPath = {
-  '/app': Home01Icon,
-  '/app/day': Calendar03Icon,
+  '/app': Sun03Icon,
+  '/app/day': TaskDaily01Icon,
   '/app/goals': Target02Icon,
   '/app/habits': RepeatIcon,
-  '/app/horizon': ClockIcon,
+  '/app/horizon': HourglassIcon,
   '/app/statistics': ChartLineData01Icon,
   '/app/notes': Note01Icon,
   '/app/calendar': Calendar01Icon,
-  '/app/share': Link01Icon,
-  '/app/profile': UserIcon,
   '/app/settings': Settings01Icon,
 } as const
 
@@ -46,36 +43,56 @@ function getSidebarDefaultOpen() {
   return persistedState !== 'false'
 }
 
+/** The menu item a path belongs to: its own, or the section it sits under (`/app/settings/…`). */
+function activeItemFor(pathname: string) {
+  const items = workspaceNavigationItems()
+  return (
+    items.find((item) => item.to === pathname) ??
+    items.find((item) => item.to !== '/app' && pathname.startsWith(`${item.to}/`))
+  )
+}
+
 export function WorkspaceShell({
+  avatarUrl,
   children,
+  headerActions,
   onLogout,
   user,
 }: PropsWithChildren<{
+  avatarUrl: string | null
+  /** Search and notifications, placed before the profile when they are available. */
+  headerActions?: ReactNode
   onLogout: () => Promise<void>
   user: UserDto
 }>) {
   const pathname = useLocation({ select: (location) => location.pathname })
   const navigationItems = workspaceNavigationItems()
-  const activeItem = navigationItems.find((item) => item.to === pathname)
-  const items: ReadonlyArray<DashboardNavigationItem> = navigationItems.map((item) => ({
-    ...item,
+  const activeItem = activeItemFor(pathname)
+  const toMenuItem = (item: (typeof navigationItems)[number]): DashboardNavigationItem => ({
     icon: iconsByPath[item.to],
-    isActive: item.to === pathname,
-  }))
+    id: item.id,
+    isActive: item.id === activeItem?.id,
+    label: item.label,
+    to: item.to,
+  })
 
   return (
     <SidebarProvider defaultOpen={getSidebarDefaultOpen()}>
       <AppSidebar
-        accountPath="/app/profile"
         homePath={homePath}
-        items={items}
-        onLogout={onLogout}
-        settingsPath="/app/settings"
-        user={user}
-        workspaceLabel="Workspace"
+        items={navigationItems.filter((item) => item.group === 'main').map(toMenuItem)}
+        serviceItems={navigationItems.filter((item) => item.group === 'service').map(toMenuItem)}
       />
       <SidebarInset>
-        <SiteHeader title={activeItem?.label ?? 'Home'} />
+        <SiteHeader title={activeItem?.label ?? 'DiLife'}>
+          {headerActions}
+          <AccountMenu
+            avatarUrl={avatarUrl}
+            onLogout={onLogout}
+            settingsPath="/app/settings"
+            user={user}
+          />
+        </SiteHeader>
         <div className="flex min-w-0 flex-1 flex-col">{children}</div>
       </SidebarInset>
     </SidebarProvider>

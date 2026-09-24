@@ -21,7 +21,8 @@ export type HabitsRepository = {
     input: MarkHabitRequest,
     today: string,
   ): Promise<HabitDto>
-  remove(userId: string, habitId: string, today: string): Promise<HabitDto[]>
+  /** Sends the habit to the trash with its marks. */
+  remove(userId: string, habitId: string, today: string, now: Date): Promise<HabitDto[]>
 }
 
 export type Clock = {

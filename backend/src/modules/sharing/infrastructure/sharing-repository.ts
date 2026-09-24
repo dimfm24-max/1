@@ -90,6 +90,11 @@ export function createPrismaSharingRepository(db: DbClient): SharingRepository {
       return settingsFor(userId)
     },
 
+    async ownerOf(token) {
+      const link = await db.shareLink.findUnique({ where: { token }, select: { userId: true } })
+      return link?.userId ?? null
+    },
+
     async readPublicProfile(token, today): Promise<PublicProfileResponse> {
       const link = await db.shareLink.findUnique({
         where: { token },
@@ -101,9 +106,10 @@ export function createPrismaSharingRepository(db: DbClient): SharingRepository {
           user: {
             select: {
               displayName: true,
-              lifeGoal: { select: { title: true } },
+              lifeGoal: { select: { title: true, deletedAt: true } },
               goals: {
-                where: { isPrivate: false },
+                // Nothing from the trash reaches the public page.
+                where: { isPrivate: false, deletedAt: null },
                 orderBy: [{ status: 'asc' }, { position: 'asc' }],
                 select: {
                   id: true,
@@ -113,11 +119,16 @@ export function createPrismaSharingRepository(db: DbClient): SharingRepository {
                   targetValue: true,
                   currentValue: true,
                   status: true,
-                  stages: { select: { steps: { select: { completedAt: true } } } },
+                  stages: {
+                    where: { deletedAt: null },
+                    select: {
+                      steps: { where: { deletedAt: null }, select: { completedAt: true } },
+                    },
+                  },
                 },
               },
               habits: {
-                where: { archivedAt: null },
+                where: { archivedAt: null, deletedAt: null },
                 orderBy: { position: 'asc' },
                 select: {
                   id: true,
@@ -130,7 +141,7 @@ export function createPrismaSharingRepository(db: DbClient): SharingRepository {
                 },
               },
               tasks: {
-                where: { outcome: 'done' },
+                where: { outcome: 'done', deletedAt: null },
                 select: { scheduledOn: true },
               },
             },
@@ -150,7 +161,8 @@ export function createPrismaSharingRepository(db: DbClient): SharingRepository {
             return {
               id: goal.id,
               title: goal.title,
-              deadline: goal.deadline.toISOString(),
+              // A date column: its UTC date part is the calendar day that was stored.
+              deadline: goal.deadline.toISOString().slice(0, 10),
               measureUnit: goal.measureUnit,
               targetValue: Number(goal.targetValue.toString()),
               currentValue: Number(goal.currentValue.toString()),
@@ -189,7 +201,8 @@ export function createPrismaSharingRepository(db: DbClient): SharingRepository {
         // The display name only. No email and no id: the page says who is doing the work, not
         // how to reach them or which account they are.
         displayName: user.displayName,
-        lifeGoalTitle: user.lifeGoal?.title ?? null,
+        lifeGoalTitle:
+          user.lifeGoal && user.lifeGoal.deletedAt === null ? user.lifeGoal.title : null,
         goals,
         habits,
         statistics,

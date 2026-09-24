@@ -16,6 +16,7 @@ import {
 
 import { AuthApi } from './api'
 import {
+  authQueryKeys,
   clearAuthenticatedSession,
   confirmPasswordResetAndClearSession,
   useCurrentUserQuery,
@@ -25,7 +26,10 @@ import {
 } from './queries'
 import { AuthContext, type AuthContextValue } from './context'
 import { bootstrapAuthSession } from './bootstrap'
-import { subscribeToBrowserSessionChanges } from './session-coordinator'
+import {
+  subscribeToAccountChanges,
+  subscribeToBrowserSessionChanges,
+} from './session-coordinator'
 
 export function AuthProvider({ children }: PropsWithChildren) {
   const queryClient = useQueryClient()
@@ -65,6 +69,15 @@ export function AuthProvider({ children }: PropsWithChildren) {
           })
       }),
     [clearLocalSession],
+  )
+
+  // Another tab confirmed the address: reload the account so the banner goes away here too.
+  useEffect(
+    () =>
+      subscribeToAccountChanges(() => {
+        void queryClient.invalidateQueries({ queryKey: authQueryKeys.me() })
+      }),
+    [queryClient],
   )
 
   const api = useMemo(
@@ -153,6 +166,18 @@ export function AuthProvider({ children }: PropsWithChildren) {
     [api, queryClient, setAccessToken],
   )
 
+  const confirmEmailVerification = useCallback(
+    async (token: string) => {
+      await api.confirmEmailVerification(token)
+      await queryClient.invalidateQueries({ queryKey: authQueryKeys.me() })
+    },
+    [api, queryClient],
+  )
+
+  const requestEmailVerification = useCallback(async () => {
+    await api.requestEmailVerification()
+  }, [api])
+
   const retrySession = useCallback(async () => {
     if (accessToken) {
       await meQuery.refetch()
@@ -189,8 +214,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
       logout,
       requestPasswordReset,
       confirmPasswordReset,
+      confirmEmailVerification,
+      requestEmailVerification,
     }),
-    [confirmPasswordReset, isBootstrapping, login, logout, meQuery.data?.user, register, requestPasswordReset, retrySession, sessionError, transport],
+    [confirmEmailVerification, confirmPasswordReset, isBootstrapping, login, logout, meQuery.data?.user, register, requestEmailVerification, requestPasswordReset, retrySession, sessionError, transport],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

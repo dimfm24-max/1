@@ -28,7 +28,8 @@ export const updateShareRequestSchema = z
 export const publicGoalSchema = z.object({
   id: z.string(),
   title: z.string(),
-  deadline: z.string().datetime(),
+  /** `YYYY-MM-DD`. */
+  deadline: z.string(),
   measureUnit: z.string(),
   targetValue: z.number(),
   currentValue: z.number(),

@@ -60,7 +60,8 @@ maybeDescribe('day API integration', () => {
       defaultTaskMinutes: 30,
       tone: 'friendly',
       birthDate: null,
-      lifeExpectancy: null,
+      lifeExpectancy: 80,
+      timeZone: null,
     })
   })
 
@@ -265,7 +266,9 @@ maybeDescribe('day API integration', () => {
       (await request(stranger, 'PATCH', `/api/day/tasks/${task.id}`, { title: 'Чужое' })).status,
     ).toBe(404)
     expect((await request(stranger, 'DELETE', `/api/day/tasks/${task.id}`)).status).toBe(404)
-    expect((await json(await request(owner, 'DELETE', `/api/day/tasks/${task.id}`))).tasks).toEqual([])
+    const ownerDelete = await request(owner, 'DELETE', `/api/day/tasks/${task.id}`)
+    expect(ownerDelete.status).toBe(200)
+    expect((await ownerDelete.json()).tasks).toEqual([])
   })
 
   test('the day requires a session', async () => {
@@ -323,6 +326,7 @@ maybeDescribe('day API integration', () => {
       tone: string
       birthDate: string | null
       lifeExpectancy: number | null
+      timeZone?: string | null
     }
     task: TaskView
     tasks: TaskView[]

@@ -7,24 +7,31 @@ import type {
   GoalDto,
   GoalTreeResponse,
   UpdateGoalRequest,
+  UpdateStageRequest,
   UpdateStepRequest,
 } from '@dilife/contracts'
 
 import { sessionQueryKeys, useAuth } from '@/features/auth'
 import type { AuthenticatedTransport } from '@/platform/api'
+import { overdueGoals } from './goal-view'
 import {
   closeGoal,
   createGoal,
   createStage,
   createStep,
   deleteGoal,
+  deleteLifeGoal,
   deleteStage,
   deleteStep,
+  fetchGoalProgressHistory,
   fetchGoalTree,
   recordGoalProgress,
   reopenGoal,
+  reorderStages,
+  reorderSteps,
   setPrimaryGoal,
   updateGoal,
+  updateStage,
   updateStep,
   upsertLifeGoal,
 } from './api'
@@ -33,7 +40,9 @@ import {
 // the QueryClient outlives a sign-out. Keeping the key under `sessionQueryKeys.all` is what makes
 // session cleanup drop it instead of showing the next account the previous one's goals.
 export const goalQueryKeys = {
+  all: [...sessionQueryKeys.all, 'goals'] as const,
   tree: () => [...sessionQueryKeys.all, 'goals', 'tree'] as const,
+  history: (goalId: string) => [...sessionQueryKeys.all, 'goals', 'history', goalId] as const,
 }
 
 export function goalTreeQueryOptions(transport: AuthenticatedTransport) {
@@ -68,6 +77,12 @@ function useGoalMutation<TVariables>(
       queryClient.setQueryData<GoalTreeResponse>(goalQueryKeys.tree(), (current) =>
         current ? mergeGoal(current, response.goal) : current,
       )
+      // The number may have moved, and a changed goal can change the day and the statistics.
+      void queryClient.invalidateQueries({ queryKey: goalQueryKeys.history(response.goal.id) })
+      void queryClient.invalidateQueries({
+        queryKey: sessionQueryKeys.all,
+        predicate: (query) => query.queryKey[1] === 'statistics' || query.queryKey[1] === 'sharing',
+      })
     },
   })
 }
@@ -77,6 +92,7 @@ function useGoalMutation<TVariables>(
  * a goal primary demotes another one, and a stale flag would show two.
  */
 function mergeGoal(tree: GoalTreeResponse, goal: GoalDto): GoalTreeResponse {
+  // Closing the main goal takes the mark away on the server; nothing else changes then.
   const demoteOthers = goal.isPrimary
   const goals = tree.goals.map((existing) => {
     if (existing.id === goal.id) return goal
@@ -172,4 +188,50 @@ export function useDeleteGoalMutation() {
       queryClient.setQueryData<GoalTreeResponse>(goalQueryKeys.tree(), tree)
     },
   })
+}
+
+export function useUpdateStageMutation() {
+  return useGoalMutation<{ stageId: string; input: UpdateStageRequest }>(
+    (transport, { stageId, input }) => updateStage(transport, stageId, input),
+  )
+}
+
+export function useReorderStagesMutation() {
+  return useGoalMutation<{ goalId: string; ids: string[] }>((transport, { goalId, ids }) =>
+    reorderStages(transport, goalId, ids),
+  )
+}
+
+export function useReorderStepsMutation() {
+  return useGoalMutation<{ stageId: string; ids: string[] }>((transport, { stageId, ids }) =>
+    reorderSteps(transport, stageId, ids),
+  )
+}
+
+export function useGoalProgressHistoryQuery(goalId: string, enabled: boolean) {
+  const auth = useAuth()
+  return useQuery({
+    queryKey: goalQueryKeys.history(goalId),
+    queryFn: ({ signal }) => fetchGoalProgressHistory(auth.transport, goalId, { signal }),
+    enabled,
+  })
+}
+
+/** Deleting the life goal answers with the tree: goals kept without it, or moved to the trash. */
+export function useDeleteLifeGoalMutation() {
+  const auth = useAuth()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (goals: 'trash' | 'detach') => deleteLifeGoal(auth.transport, goals),
+    onSuccess: (tree) => {
+      queryClient.setQueryData<GoalTreeResponse>(goalQueryKeys.tree(), tree)
+    },
+  })
+}
+
+/** Open goals past their deadline; the review screen asks about each (task 09). */
+export function useOverdueGoals(today: string): GoalDto[] {
+  const tree = useGoalTreeQuery()
+  return tree.data ? overdueGoals(tree.data.goals, today) : []
 }

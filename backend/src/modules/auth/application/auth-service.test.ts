@@ -8,15 +8,25 @@ const user = {
   email: 'user@example.com',
   passwordHash: 'password-hash',
   displayName: null,
-  role: 'user' as const,
+  emailVerifiedAt: null,
+  onboardingCompletedAt: null,
   createdAt: new Date('2026-01-01T00:00:00.000Z'),
 }
 
 const unusedPasswordResetDependencies = {
+  emailVerificationTasks: {
+    hasRoom: async () => true,
+    enqueue: async () => undefined,
+  },
+  emailVerificationTokens: {
+    create: () => 'v'.repeat(43),
+    hash: (token: string) => `hash:${token}`,
+  },
   passwordResetCooldownSeconds: 60,
   passwordResetNotifier: {
     configured: false,
     isPermanentFailure: () => false,
+    sendEmailVerification: async () => undefined,
     sendPasswordChanged: async () => undefined,
     sendPasswordReset: async () => undefined,
   },
@@ -31,6 +41,10 @@ const unusedPasswordResetDependencies = {
 }
 
 const unusedPasswordResetRepository = {
+  findUserById: async () => null,
+  createEmailVerificationToken: async () => false,
+  invalidateEmailVerificationToken: async () => undefined,
+  completeEmailVerification: async () => false,
   createPasswordResetToken: async () => false,
   invalidatePasswordResetToken: async () => undefined,
   hasActivePasswordResetToken: async () => false,
@@ -198,7 +212,8 @@ test('a reset request queues exactly one task without looking the account up', a
     passwordResetNotifier: {
       configured: true,
       isPermanentFailure: () => false,
-      sendPasswordChanged: async () => undefined,
+      sendEmailVerification: async () => undefined,
+    sendPasswordChanged: async () => undefined,
       sendPasswordReset: async () => undefined,
     },
     passwordResetTasks: {
@@ -244,7 +259,8 @@ function deliveryService({
     passwordResetNotifier: {
       configured: true,
       isPermanentFailure: () => permanent,
-      sendPasswordChanged: async () => undefined,
+      sendEmailVerification: async () => undefined,
+    sendPasswordChanged: async () => undefined,
       sendPasswordReset: async () => {
         throw new Error('provider unavailable')
       },
@@ -349,7 +365,8 @@ test('a delivery the cooldown refused sends nothing', async () => {
     passwordResetNotifier: {
       configured: true,
       isPermanentFailure: () => false,
-      sendPasswordChanged: async () => undefined,
+      sendEmailVerification: async () => undefined,
+    sendPasswordChanged: async () => undefined,
       sendPasswordReset: async (input) => void sent.push(input),
     },
     refreshTokens: {} as never,
@@ -386,7 +403,8 @@ test('delivery to an address with no account is skipped rather than retried', as
     passwordResetNotifier: {
       configured: true,
       isPermanentFailure: () => false,
-      sendPasswordChanged: async () => undefined,
+      sendEmailVerification: async () => undefined,
+    sendPasswordChanged: async () => undefined,
       sendPasswordReset: async () => undefined,
     },
     refreshTokens: {} as never,
@@ -430,7 +448,8 @@ test('password reset confirmation rejects invalid tokens before hashing and queu
     passwordResetNotifier: {
       configured: true,
       isPermanentFailure: () => false,
-      sendPasswordChanged: async () => undefined,
+      sendEmailVerification: async () => undefined,
+    sendPasswordChanged: async () => undefined,
       sendPasswordReset: async () => undefined,
     },
     refreshTokens: {} as never,

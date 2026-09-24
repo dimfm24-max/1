@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card'
 import { FieldDescription } from '@/components/ui/field'
 import { Typography } from '@/components/typography'
-import { ApiRequestError } from '@/platform/api'
+import { ApiRequestError, describeApiError } from '@/platform/api'
 import {
   useAvatarImage,
   useAvatarQuery,
@@ -16,7 +16,7 @@ import {
 } from './queries'
 import { AvatarUploadError } from './upload'
 
-const acceptedFileTypes = 'image/jpeg,image/png,image/heic,image/heif'
+const acceptedFileTypes = 'image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif'
 
 export function AvatarPanel({ user }: { user: UserDto }) {
   const fileInput = useRef<HTMLInputElement>(null)
@@ -39,7 +39,7 @@ export function AvatarPanel({ user }: { user: UserDto }) {
 
     setNotice(null)
     upload.mutate(file, {
-      onSuccess: () => setNotice('Photo updated.'),
+      onSuccess: () => setNotice('Фото обновлено.'),
     })
   }
 
@@ -47,10 +47,10 @@ export function AvatarPanel({ user }: { user: UserDto }) {
     <Card>
       <CardHeader>
         <Typography as="h2" variant="h6">
-          Profile photo
+          Фото профиля
         </Typography>
         <CardDescription>
-          Shown next to your name across the workspace. Only you can see the original file.
+          Видно рядом с твоим именем и на странице по ссылке, если ты её откроешь.
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-5">
@@ -68,23 +68,24 @@ export function AvatarPanel({ user }: { user: UserDto }) {
                 type="button"
                 variant="outline"
               >
-                {upload.isPending ? 'Uploading…' : hasAvatar ? 'Replace photo' : 'Upload photo'}
+                {upload.isPending ? 'Загружаем…' : hasAvatar ? 'Заменить фото' : 'Загрузить фото'}
               </Button>
               {hasAvatar && (
                 <Button
+                  data-testid="avatar-remove"
                   disabled={busy}
                   onClick={() => {
                     setNotice(null)
-                    remove.mutate(undefined, { onSuccess: () => setNotice('Photo removed.') })
+                    remove.mutate(undefined, { onSuccess: () => setNotice('Фото удалено.') })
                   }}
                   type="button"
                   variant="ghost"
                 >
-                  {remove.isPending ? 'Removing…' : 'Remove'}
+                  {remove.isPending ? 'Удаляем…' : 'Удалить'}
                 </Button>
               )}
             </div>
-            <FieldDescription>JPEG, PNG, or HEIC, up to 5 MB.</FieldDescription>
+            <FieldDescription>JPEG, PNG, WebP или HEIC, до 5 МБ.</FieldDescription>
           </div>
 
           {/*
@@ -105,14 +106,16 @@ export function AvatarPanel({ user }: { user: UserDto }) {
 
         {upload.isError && (
           <Alert data-testid="avatar-error" variant="destructive">
-            <AlertTitle>Photo was not saved</AlertTitle>
+            <AlertTitle>Фото не сохранилось</AlertTitle>
             <AlertDescription>{uploadErrorMessage(upload.error)}</AlertDescription>
           </Alert>
         )}
         {remove.isError && (
           <Alert data-testid="avatar-remove-error" variant="destructive">
-            <AlertTitle>Photo was not removed</AlertTitle>
-            <AlertDescription>{remove.error.message}</AlertDescription>
+            <AlertTitle>Фото не удалилось</AlertTitle>
+            <AlertDescription>
+              {describeApiError(remove.error, 'Попробуй ещё раз.')}
+            </AlertDescription>
           </Alert>
         )}
         {notice && !upload.isError && !remove.isError && (
@@ -134,17 +137,17 @@ function uploadErrorMessage(error: unknown) {
 
   if (error instanceof ApiRequestError) {
     if (error.code === 'UPLOAD_NOT_COMPLETED') {
-      return 'The upload did not finish. Try sending the photo again.'
+      return 'Фото не догрузилось. Отправь его ещё раз.'
     }
     if (error.code === 'UPLOAD_EXPIRED') {
-      return 'The upload took too long. Pick the photo again to start over.'
+      return 'Загрузка заняла слишком много времени. Выбери фото заново.'
     }
     if (error.code === 'UPLOAD_REJECTED') {
-      return 'That file is not a supported image. Pick a JPEG, PNG, or HEIC photo.'
+      return 'Этот файл не подходит. Выбери фото в JPEG, PNG, WebP или HEIC.'
     }
   }
 
-  return error instanceof Error ? error.message : 'Something went wrong. Try again.'
+  return describeApiError(error, 'Что-то пошло не так. Попробуй ещё раз.')
 }
 
 function initials(user: UserDto) {

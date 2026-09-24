@@ -47,11 +47,10 @@ const habitsOk = {
 }
 
 /**
- * Streaks depend on what counts as today, and only the client knows the person's time zone. It
- * travels as a query parameter rather than being taken from the server clock, which would break
- * a streak at the wrong hour for anyone not sitting in the server's zone.
+ * Older clients still send `today`; it is accepted and ignored for one release, because the
+ * server now works the day out from the person's own settings. Remove the field afterwards.
  */
-const todayQuerySchema = z.object({ today: dayDateSchema }).strict()
+const todayQuerySchema = z.object({ today: dayDateSchema.optional() }).strict()
 
 const listRoute = createRoute({
   method: 'get',
@@ -122,14 +121,14 @@ export function createHabitsRoutes({ requireAuth, service }: CreateHabitsRoutesO
 
   routes.openapi(listRoute, async (c) => {
     const result = await executeHabits(() =>
-      service.list(c.var.user, c.req.valid('query').today),
+      service.list(c.var.user),
     )
     return c.json(result, 200)
   })
 
   routes.openapi(createHabitRoute, async (c) => {
     const result = await executeHabits(() =>
-      service.create(c.var.user, c.req.valid('json'), c.req.valid('query').today),
+      service.create(c.var.user, c.req.valid('json')),
     )
     return c.json(result, 201)
   })
@@ -140,7 +139,6 @@ export function createHabitsRoutes({ requireAuth, service }: CreateHabitsRoutesO
         c.var.user,
         c.req.valid('param').habitId,
         c.req.valid('json'),
-        c.req.valid('query').today,
       ),
     )
     return c.json(result, 200)
@@ -152,7 +150,6 @@ export function createHabitsRoutes({ requireAuth, service }: CreateHabitsRoutesO
         c.var.user,
         c.req.valid('param').habitId,
         c.req.valid('json'),
-        c.req.valid('query').today,
       ),
     )
     return c.json(result, 200)
@@ -160,7 +157,7 @@ export function createHabitsRoutes({ requireAuth, service }: CreateHabitsRoutesO
 
   routes.openapi(deleteHabitRoute, async (c) => {
     const result = await executeHabits(() =>
-      service.remove(c.var.user, c.req.valid('param').habitId, c.req.valid('query').today),
+      service.remove(c.var.user, c.req.valid('param').habitId),
     )
     return c.json(result, 200)
   })

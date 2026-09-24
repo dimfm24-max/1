@@ -4,11 +4,15 @@ import {
   createGoalRequestSchema,
   createStageRequestSchema,
   createStepRequestSchema,
+  deadlineInputSchema,
+  deleteLifeGoalRequestSchema,
   goalIdParamsSchema,
+  goalProgressHistoryResponseSchema,
   goalResponseSchema,
   goalTreeResponseSchema,
   lifeGoalResponseSchema,
   recordGoalProgressRequestSchema,
+  reorderRequestSchema,
   stageIdParamsSchema,
   stepIdParamsSchema,
   updateGoalRequestSchema,
@@ -82,6 +86,59 @@ const upsertLifeGoalRoute = createRoute({
   },
 })
 
+const deleteLifeGoalRoute = createRoute({
+  method: 'delete',
+  path: '/life-goal',
+  security: bearerSecurity,
+  request: {
+    body: { content: { 'application/json': { schema: deleteLifeGoalRequestSchema } } },
+  },
+  responses: {
+    ...commonErrors,
+    404: { content: errorContent, description: 'There is no life goal to delete' },
+    200: {
+      content: { 'application/json': { schema: goalTreeResponseSchema } },
+      description: 'The tree without a life goal; goals kept or moved to the trash',
+    },
+  },
+})
+
+const readProgressHistoryRoute = createRoute({
+  method: 'get',
+  path: '/goals/{goalId}/progress',
+  security: bearerSecurity,
+  request: { params: goalIdParamsSchema },
+  responses: {
+    ...goalErrors,
+    200: {
+      content: { 'application/json': { schema: goalProgressHistoryResponseSchema } },
+      description: 'Every change of the goal number, oldest first',
+    },
+  },
+})
+
+const reorderStagesRoute = createRoute({
+  method: 'put',
+  path: '/goals/{goalId}/stage-order',
+  security: bearerSecurity,
+  request: {
+    params: goalIdParamsSchema,
+    body: { content: { 'application/json': { schema: reorderRequestSchema } } },
+  },
+  responses: { ...goalErrors, ...goalOk },
+})
+
+const reorderStepsRoute = createRoute({
+  method: 'put',
+  path: '/stages/{stageId}/step-order',
+  security: bearerSecurity,
+  request: {
+    params: stageIdParamsSchema,
+    body: { content: { 'application/json': { schema: reorderRequestSchema } } },
+  },
+  responses: { ...goalErrors, ...goalOk },
+})
+
 const createGoalRoute = createRoute({
   method: 'post',
   path: '/goals',
@@ -141,7 +198,7 @@ const reopenGoalRoute = createRoute({
     body: {
       content: {
         'application/json': {
-          schema: z.object({ deadline: z.string().datetime() }).strict(),
+          schema: z.object({ deadline: deadlineInputSchema }).strict(),
         },
       },
     },
@@ -166,7 +223,7 @@ const deleteGoalRoute = createRoute({
     ...goalErrors,
     200: {
       content: { 'application/json': { schema: goalTreeResponseSchema } },
-      description: 'The tree without that goal, and without it as the primary one',
+      description: 'The tree without that goal, which is now in the trash',
     },
   },
 })
@@ -248,6 +305,34 @@ export function createGoalsRoutes({ requireAuth, service }: CreateGoalsRoutesOpt
   routes.openapi(upsertLifeGoalRoute, async (c) => {
     const result = await executeGoals(() =>
       service.upsertLifeGoal(c.var.user, c.req.valid('json')),
+    )
+    return c.json(result, 200)
+  })
+
+  routes.openapi(deleteLifeGoalRoute, async (c) => {
+    const tree = await executeGoals(() =>
+      service.deleteLifeGoal(c.var.user, c.req.valid('json')),
+    )
+    return c.json(tree, 200)
+  })
+
+  routes.openapi(readProgressHistoryRoute, async (c) => {
+    const result = await executeGoals(() =>
+      service.readProgressHistory(c.var.user, c.req.valid('param').goalId),
+    )
+    return c.json(result, 200)
+  })
+
+  routes.openapi(reorderStagesRoute, async (c) => {
+    const result = await executeGoals(() =>
+      service.reorderStages(c.var.user, c.req.valid('param').goalId, c.req.valid('json').ids),
+    )
+    return c.json(result, 200)
+  })
+
+  routes.openapi(reorderStepsRoute, async (c) => {
+    const result = await executeGoals(() =>
+      service.reorderSteps(c.var.user, c.req.valid('param').stageId, c.req.valid('json').ids),
     )
     return c.json(result, 200)
   })

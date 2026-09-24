@@ -8,22 +8,32 @@ import {
   createTemplateRequestSchema,
   dayContextResponseSchema,
   dayResponseSchema,
+  repeatTaskRequestSchema,
   resolveTaskRequestSchema,
-  settingsResponseSchema,
+  saveDayAsTemplateRequestSchema,
+  stepPlansResponseSchema,
   taskResponseSchema,
   templatesResponseSchema,
-  updateSettingsRequestSchema,
+  updateCategoryRequestSchema,
   updateSubtaskRequestSchema,
   updateTaskRequestSchema,
+  updateTemplateItemRequestSchema,
+  updateTemplateRequestSchema,
   type ApplyTemplateRequest,
   type CreateCategoryRequest,
   type CreateTaskRequest,
   type CreateTemplateItemRequest,
+  type RepeatScope,
+  type RepeatTaskRequest,
   type ResolveTaskRequest,
-  type UpdateSettingsRequest,
+  type SaveDayAsTemplateRequest,
+  type UpdateCategoryRequest,
   type UpdateSubtaskRequest,
   type UpdateTaskRequest,
+  type UpdateTemplateItemRequest,
+  type UpdateTemplateRequest,
 } from '@dilife/contracts'
+import { z } from 'zod'
 
 import type { AuthenticatedTransport } from '@/platform/api'
 
@@ -105,16 +115,6 @@ export function deleteSubtask(transport: AuthenticatedTransport, subtaskId: stri
   })
 }
 
-export function updateSettings(
-  transport: AuthenticatedTransport,
-  input: UpdateSettingsRequest,
-) {
-  return transport.request('/api/day/settings', settingsResponseSchema, {
-    method: 'PATCH',
-    body: updateSettingsRequestSchema.parse(input),
-  })
-}
-
 export function createCategory(
   transport: AuthenticatedTransport,
   input: CreateCategoryRequest,
@@ -159,5 +159,104 @@ export function applyTemplate(transport: AuthenticatedTransport, input: ApplyTem
   return transport.request('/api/day/templates/apply', dayResponseSchema, {
     method: 'POST',
     body: applyTemplateRequestSchema.parse(input),
+  })
+}
+
+export function deleteTaskInScope(
+  transport: AuthenticatedTransport,
+  taskId: string,
+  scope: RepeatScope,
+) {
+  return transport.request(`/api/day/tasks/${taskId}?scope=${scope}`, dayResponseSchema, {
+    method: 'DELETE',
+  })
+}
+
+export function repeatTask(
+  transport: AuthenticatedTransport,
+  taskId: string,
+  input: RepeatTaskRequest,
+) {
+  return transport.request(`/api/day/tasks/${taskId}/repeat`, taskResponseSchema, {
+    method: 'PUT',
+    body: repeatTaskRequestSchema.parse(input),
+  })
+}
+
+export function stopRepeat(transport: AuthenticatedTransport, seriesId: string) {
+  return transport.request(
+    `/api/day/series/${seriesId}`,
+    z.object({ stopped: z.literal(true) }).strict(),
+    { method: 'DELETE' },
+  )
+}
+
+export function fetchStepPlans(
+  transport: AuthenticatedTransport,
+  options?: { signal?: AbortSignal },
+) {
+  return transport.request('/api/day/step-plans', stepPlansResponseSchema, {
+    signal: options?.signal,
+  })
+}
+
+export function fetchAppliedTemplates(
+  transport: AuthenticatedTransport,
+  date: string,
+  options?: { signal?: AbortSignal },
+) {
+  return transport.request(
+    `/api/day/${date}/applied-templates`,
+    z.object({ templateIds: z.array(z.string()) }).strict(),
+    { signal: options?.signal },
+  )
+}
+
+export function updateCategory(
+  transport: AuthenticatedTransport,
+  categoryId: string,
+  input: UpdateCategoryRequest,
+) {
+  return transport.request(`/api/day/categories/${categoryId}`, categoriesResponseSchema, {
+    method: 'PATCH',
+    body: updateCategoryRequestSchema.parse(input),
+  })
+}
+
+export function updateTemplate(
+  transport: AuthenticatedTransport,
+  templateId: string,
+  input: UpdateTemplateRequest,
+) {
+  return transport.request(`/api/day/templates/${templateId}`, templatesResponseSchema, {
+    method: 'PATCH',
+    body: updateTemplateRequestSchema.parse(input),
+  })
+}
+
+export function updateTemplateItem(
+  transport: AuthenticatedTransport,
+  itemId: string,
+  input: UpdateTemplateItemRequest,
+) {
+  return transport.request(`/api/day/template-items/${itemId}`, templatesResponseSchema, {
+    method: 'PATCH',
+    body: updateTemplateItemRequestSchema.parse(input),
+  })
+}
+
+export function deleteTemplateItem(transport: AuthenticatedTransport, itemId: string) {
+  return transport.request(`/api/day/template-items/${itemId}`, templatesResponseSchema, {
+    method: 'DELETE',
+  })
+}
+
+export function saveDayAsTemplate(
+  transport: AuthenticatedTransport,
+  input: SaveDayAsTemplateRequest,
+) {
+  return transport.request('/api/day/templates/from-day', templatesResponseSchema, {
+    method: 'POST',
+    body: saveDayAsTemplateRequestSchema.parse(input),
   })
 }

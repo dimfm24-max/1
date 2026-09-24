@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
-import { automaticProgressValue, daysUntil, goalCompletionRatio } from './progress'
+import { automaticProgressValue, daysUntil, goalCompletionRatio, goalRatio } from './progress'
 
 describe('goalCompletionRatio', () => {
   test('reports the share of the target that is reached', () => {
@@ -34,15 +34,29 @@ describe('automaticProgressValue', () => {
 })
 
 describe('daysUntil', () => {
-  const now = new Date('2026-09-22T21:00:00.000Z')
-
-  test('counts whole days, so a deadline reads the same all day', () => {
-    expect(daysUntil(new Date('2026-09-23T01:00:00.000Z'), now)).toBe(1)
-    expect(daysUntil(new Date('2026-09-23T23:00:00.000Z'), now)).toBe(1)
-    expect(daysUntil(new Date('2026-09-22T01:00:00.000Z'), now)).toBe(0)
+  test('counts whole calendar days, so a deadline reads the same all day', () => {
+    expect(daysUntil('2026-09-23', '2026-09-22')).toBe(1)
+    expect(daysUntil('2026-09-22', '2026-09-22')).toBe(0)
   })
 
   test('goes negative once the deadline has passed', () => {
-    expect(daysUntil(new Date('2026-09-20T12:00:00.000Z'), now)).toBe(-2)
+    expect(daysUntil('2026-09-20', '2026-09-22')).toBe(-2)
   })
+})
+
+test('a goal with a start runs from it towards the target, down as well as up', () => {
+  const weight = { targetValue: 60, initialValue: 80 }
+  expect(goalCompletionRatio({ ...weight, currentValue: 80 })).toBe(0)
+  expect(goalCompletionRatio({ ...weight, currentValue: 70 })).toBe(0.5)
+  expect(goalCompletionRatio({ ...weight, currentValue: 60 })).toBe(1)
+  // Moving away from the target is not negative progress on the bar, and passing it stops at 1.
+  expect(goalCompletionRatio({ ...weight, currentValue: 85 })).toBe(0)
+  expect(goalCompletionRatio({ ...weight, currentValue: 55 })).toBe(1)
+  expect(goalCompletionRatio({ targetValue: 20, initialValue: 10, currentValue: 15 })).toBe(0.5)
+})
+
+test('an automatic goal ignores a stored start', () => {
+  expect(
+    goalRatio({ progressMode: 'automatic', currentValue: 21, targetValue: 42, initialValue: 40 }),
+  ).toBe(0.5)
 })

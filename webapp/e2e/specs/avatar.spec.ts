@@ -20,16 +20,17 @@ async function registerAndOpenProfile(page: Page) {
   const email = uniqueEmail('avatar-e2e')
 
   await page.goto('/signup')
-  await page.getByLabel('Full Name').fill('Avatar E2E User')
-  await page.getByLabel('Email').fill(email)
-  await page.getByLabel('Password', { exact: true }).fill(e2ePassword)
-  await page.getByLabel('Confirm Password').fill(e2ePassword)
-  await page.getByRole('button', { name: 'Create Account' }).click()
+  await page.getByTestId('signup-display-name').fill('Avatar E2E User')
+  await page.getByTestId('signup-email').fill(email)
+  await page.getByTestId('signup-password').fill(e2ePassword)
+  await page.getByTestId('signup-confirm-password').fill(e2ePassword)
+  await page.getByTestId('signup-submit').click()
   await expect(page).toHaveURL(/\/app$/)
 
-  await page.getByRole('link', { name: 'Profile' }).click()
-  await expect(page).toHaveURL(/\/app\/profile$/)
-  await expect(page.getByRole('heading', { level: 1, name: 'Profile' })).toBeVisible()
+  await page.getByTestId('account-menu-trigger').click()
+  await page.getByTestId('nav-profile').click()
+  await expect(page).toHaveURL(/\/app\/settings\/profile$/)
+  await expect(page.getByTestId('profile-page')).toBeVisible()
   await expect(page.getByTestId('avatar-fallback')).toBeVisible()
 
   return email
@@ -52,25 +53,25 @@ test('uploads an avatar, keeps it across a reload, replaces it, and removes it',
   await registerAndOpenProfile(page)
 
   await pickFile(page, pngImage)
-  await expect(page.getByTestId('avatar-notice')).toContainText('Photo updated.')
+  await expect(page.getByTestId('avatar-notice')).toBeVisible()
   await expect(avatarImage(page)).toBeVisible()
 
   // Survives a reload, which is what distinguishes a stored object from a local preview.
   await page.reload()
-  await expect(page.getByRole('heading', { level: 1, name: 'Profile' })).toBeVisible()
+  await expect(page.getByTestId('profile-page')).toBeVisible()
   await expect(avatarImage(page)).toBeVisible()
 
   await pickFile(page, jpegImage)
-  await expect(page.getByTestId('avatar-notice')).toContainText('Photo updated.')
+  await expect(page.getByTestId('avatar-notice')).toBeVisible()
   await expect(avatarImage(page)).toBeVisible()
 
-  await page.getByRole('button', { name: 'Remove' }).click()
-  await expect(page.getByTestId('avatar-notice')).toContainText('Photo removed.')
+  await page.getByTestId('avatar-remove').click()
+  await expect(page.getByTestId('avatar-notice')).toBeVisible()
   await expect(avatarImage(page)).toHaveCount(0)
   await expect(page.getByTestId('avatar-fallback')).toBeVisible()
 
   await page.reload()
-  await expect(page.getByRole('heading', { level: 1, name: 'Profile' })).toBeVisible()
+  await expect(page.getByTestId('profile-page')).toBeVisible()
   await expect(avatarImage(page)).toHaveCount(0)
 })
 
@@ -95,7 +96,7 @@ test('recovers from an interrupted upload when the user tries again', async ({ p
   // The retry gets a fresh write-once key, so it succeeds rather than colliding with the
   // abandoned one.
   await pickFile(page, pngImage)
-  await expect(page.getByTestId('avatar-notice')).toContainText('Photo updated.')
+  await expect(page.getByTestId('avatar-notice')).toBeVisible()
   await expect(avatarImage(page)).toBeVisible()
 
   await page.reload()

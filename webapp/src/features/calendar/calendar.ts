@@ -11,21 +11,6 @@ export type CalendarCell = {
   isToday: boolean
 }
 
-const monthNames = [
-  'январь',
-  'февраль',
-  'март',
-  'апрель',
-  'май',
-  'июнь',
-  'июль',
-  'август',
-  'сентябрь',
-  'октябрь',
-  'ноябрь',
-  'декабрь',
-]
-
 export const weekdayHeadings = ['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс']
 
 /**
@@ -60,10 +45,7 @@ export function shiftMonth(month: string, months: number): string {
   return moved.toISOString().slice(0, 7)
 }
 
-export function formatMonth(month: string): string {
-  const [year, index] = month.split('-').map(Number)
-  return `${monthNames[(index ?? 1) - 1]} ${year}`
-}
+export { formatMonthYear as formatMonth } from '@/platform/intl'
 
 export function dayOfMonth(date: string): number {
   return Number(date.slice(8, 10))

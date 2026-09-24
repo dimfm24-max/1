@@ -50,19 +50,11 @@ export function describeHorizon(
   }
 }
 
-/** Russian agreement for the four units the screen shows. */
-export function formatCount(value: number, forms: [string, string, string]): string {
-  const tail = value % 100
-  if (tail >= 11 && tail <= 14) return `${value} ${forms[2]}`
-  const last = value % 10
-  if (last === 1) return `${value} ${forms[0]}`
-  if (last >= 2 && last <= 4) return `${value} ${forms[1]}`
-  return `${value} ${forms[2]}`
-}
+export { formatCount } from '@/platform/intl'
 
 export const unitForms = {
-  years: ['год', 'года', 'лет'] as [string, string, string],
-  months: ['месяц', 'месяца', 'месяцев'] as [string, string, string],
-  weeks: ['неделя', 'недели', 'недель'] as [string, string, string],
-  days: ['день', 'дня', 'дней'] as [string, string, string],
+  years: ['год', 'года', 'лет'] as const,
+  months: ['месяц', 'месяца', 'месяцев'] as const,
+  weeks: ['неделя', 'недели', 'недель'] as const,
+  days: ['день', 'дня', 'дней'] as const,
 }

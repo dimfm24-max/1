@@ -2,12 +2,14 @@ import type { MiddlewareHandler } from 'hono'
 
 import type { DbClient } from '../../db'
 import type { AuthHttpEnv } from '../auth'
+import type { SettingsReader } from '../settings'
 import { createPrismaSharingRepository } from './infrastructure/sharing-repository'
 import { createSharingRoutes } from './transport/routes'
 
 type CreateSharingModuleOptions = {
   db: DbClient
   requireAuth: MiddlewareHandler<AuthHttpEnv>
+  settings: SettingsReader
 }
 
 /**
@@ -18,7 +20,11 @@ export function createSharingModule(options: CreateSharingModuleOptions) {
   const repository = createPrismaSharingRepository(options.db)
 
   return {
-    routes: createSharingRoutes({ repository, requireAuth: options.requireAuth }),
+    routes: createSharingRoutes({
+      repository,
+      requireAuth: options.requireAuth,
+      settings: options.settings,
+    }),
     repository,
   }
 }

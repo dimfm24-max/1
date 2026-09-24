@@ -31,6 +31,7 @@ const validUser = {
   email: 'user@example.com',
   displayName: null,
   createdAt: '2026-05-11T00:00:00.000Z',
+  emailVerified: false,
 } as const
 
 describe('auth contracts', () => {

@@ -12,20 +12,54 @@ import {
 
 const validGoal = {
   title: '  Пробежать марафон  ',
-  deadline: '2027-05-01T00:00:00.000Z',
+  deadline: '2027-05-01',
   measureUnit: ' километров ',
   targetValue: 42,
 }
 
 describe('goal contracts', () => {
-  test('trims a new goal and defaults progress to the value the person records', () => {
+  test('trims a new goal and counts it from its steps by default', () => {
     expect(createGoalRequestSchema.parse(validGoal)).toEqual({
       title: 'Пробежать марафон',
-      deadline: '2027-05-01T00:00:00.000Z',
+      deadline: '2027-05-01',
       measureUnit: 'километров',
       targetValue: 42,
-      progressMode: 'manual',
+      progressMode: 'automatic',
+      deadlineWarningDays: 3,
     })
+  })
+
+  test('a target must differ from the start, and be above zero without one', () => {
+    expect(() =>
+      createGoalRequestSchema.parse({ ...validGoal, targetValue: 0 }),
+    ).toThrow()
+    expect(() =>
+      createGoalRequestSchema.parse({
+        ...validGoal,
+        progressMode: 'manual',
+        targetValue: 60,
+        initialValue: 60,
+      }),
+    ).toThrow()
+    expect(
+      createGoalRequestSchema.parse({
+        ...validGoal,
+        progressMode: 'manual',
+        targetValue: 60,
+        initialValue: 80,
+      }).initialValue,
+    ).toBe(80)
+    // An automatic goal counts steps, so a start of its own does not matter.
+    expect(
+      createGoalRequestSchema.parse({ ...validGoal, targetValue: 42, initialValue: 42 })
+        .targetValue,
+    ).toBe(42)
+  })
+
+  test('takes the date part of a moment sent by a client from before deadlines were dates', () => {
+    expect(
+      createGoalRequestSchema.parse({ ...validGoal, deadline: '2027-05-01T23:59:59.000Z' }).deadline,
+    ).toBe('2027-05-01')
   })
 
   test('refuses a goal without a deadline, because every goal carries one', () => {
@@ -57,11 +91,14 @@ describe('goal contracts', () => {
     expect(() => recordGoalProgressRequestSchema.parse({ currentValue: Number.NaN })).toThrow()
   })
 
-  test('closing a goal accepts only the two endings, with an optional note', () => {
-    expect(closeGoalRequestSchema.parse({ status: 'completed' })).toEqual({ status: 'completed' })
+  test('closing a goal accepts only the two endings, and always with an outcome', () => {
+    expect(() => closeGoalRequestSchema.parse({ status: 'completed' })).toThrow()
+    expect(() => closeGoalRequestSchema.parse({ status: 'completed', outcomeNote: '  ' })).toThrow()
     expect(closeGoalRequestSchema.parse({ status: 'abandoned', outcomeNote: ' Понял, что не моё ' }))
       .toEqual({ status: 'abandoned', outcomeNote: 'Понял, что не моё' })
-    expect(() => closeGoalRequestSchema.parse({ status: 'active' })).toThrow()
+    expect(() =>
+      closeGoalRequestSchema.parse({ status: 'active', outcomeNote: 'Итог' }),
+    ).toThrow()
   })
 
   test('a step may estimate its time, but never a whole day or a negative one', () => {

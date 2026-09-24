@@ -53,8 +53,15 @@ maybeDescribe('notes API integration', () => {
     const goalId = await createGoal(owner)
     const note = await createNote(owner, { body: 'Что я понял', goalId })
 
+    // In the trash the goal can still come back, so the note keeps pointing at it; the screen
+    // does not name a goal it cannot show.
     await request(owner, 'DELETE', `/api/goals/goals/${goalId}`)
+    const whileTrashed = await list(owner)
+    expect(whileTrashed.map((each) => each.id)).toEqual([note.id])
+    expect(whileTrashed[0]?.goalId).toBe(goalId)
 
+    // Gone for good: the note stays, the link goes.
+    expect((await request(owner, 'DELETE', `/api/trash/goal/${goalId}`)).status).toBe(200)
     const notes = await list(owner)
     expect(notes).toHaveLength(1)
     expect(notes[0]?.id).toBe(note.id)

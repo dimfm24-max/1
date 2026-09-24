@@ -6,9 +6,9 @@ import {
   formatDayHeading,
   formatDuration,
   formatMinuteOfDay,
-  overlappingTaskIds,
   relativeDayLabel,
   shiftDay,
+  taskWord,
   toDayDate,
 } from '../src/features/day/day-view'
 
@@ -53,26 +53,6 @@ test('an empty day reports zero rather than dividing by nothing', () => {
   expect(countDay([]).donePercent).toBe(0)
 })
 
-test('marks both sides of every crossing, and leaves untimed tasks alone', () => {
-  const overlapping = overlappingTaskIds([
-    task({ id: 'a', startMinute: 540, durationMinutes: 60 }),
-    task({ id: 'b', startMinute: 570, durationMinutes: 30 }),
-    task({ id: 'c', startMinute: 700, durationMinutes: 30 }),
-    task({ id: 'd', startMinute: null }),
-  ])
-
-  expect([...overlapping].sort()).toEqual(['a', 'b'])
-})
-
-test('touching tasks do not overlap: one ends where the next begins', () => {
-  expect(
-    overlappingTaskIds([
-      task({ id: 'a', startMinute: 540, durationMinutes: 30 }),
-      task({ id: 'b', startMinute: 570, durationMinutes: 30 }),
-    ]).size,
-  ).toBe(0)
-})
-
 test('says times and lengths the way a person would', () => {
   expect(formatMinuteOfDay(510)).toBe('08:30')
   expect(formatMinuteOfDay(0)).toBe('00:00')
@@ -98,4 +78,16 @@ test('names the day, and says yesterday, today and tomorrow by name', () => {
   expect(relativeDayLabel('2026-09-23', '2026-09-22')).toBe('завтра')
   expect(relativeDayLabel('2026-09-21', '2026-09-22')).toBe('вчера')
   expect(relativeDayLabel('2026-09-30', '2026-09-22')).toBeNull()
+})
+
+test('task counts agree in Russian', () => {
+  expect([1, 2, 5, 11, 21, 22, 112].map(taskWord)).toEqual([
+    'задача',
+    'задачи',
+    'задач',
+    'задач',
+    'задача',
+    'задачи',
+    'задач',
+  ])
 })

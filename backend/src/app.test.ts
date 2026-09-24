@@ -98,7 +98,7 @@ test('account mutations reject oversized bodies before authentication', async ()
 
 test('account mutations share bounded write-rate protection', async () => {
   const app = createApp({
-    env: { ...env, AUTH_RATE_LIMIT_MAX: 1 },
+    env: { ...env, API_RATE_LIMIT_MAX: 1 },
     prisma: {} as DbClient,
   })
   const request = (path: string) => app.request(path, {

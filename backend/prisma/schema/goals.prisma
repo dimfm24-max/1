@@ -29,6 +29,11 @@ model LifeGoal {
   /// that goal is deleted: losing the pointer must not delete the life goal with it.
   primaryGoalId String? @unique @map("primary_goal_id") @db.Uuid
 
+  /// Set when the person deletes the life goal. The row stays so the goals below keep their
+  /// link: a detached goal returns under the next life goal by itself (owner's decision on task
+  /// 12), and the primary pointer survives. Naming a new life goal clears this and the title.
+  deletedAt DateTime? @map("deleted_at")
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -49,7 +54,8 @@ model Goal {
 
   title       String
   description String?
-  deadline    DateTime
+  /// A calendar day, not a moment: a deadline reads the same date in every time zone.
+  deadline    DateTime @db.Date
 
   /// The person's own words and number: "килограммов", 60. Stored as decimal because these are
   /// counted quantities a person reads back, and float drift would show up in the progress bar.
@@ -57,6 +63,17 @@ model Goal {
   targetValue  Decimal          @map("target_value") @db.Decimal(14, 3)
   currentValue Decimal          @default(0) @map("current_value") @db.Decimal(14, 3)
   progressMode GoalProgressMode @default(manual) @map("progress_mode")
+
+  /// "Сколько сейчас" when the goal was set, for a manual goal: 80 for "60 килограммов" makes
+  /// the bar run from 80 down to 60. Null counts from zero. Automatic goals ignore it.
+  initialValue Decimal? @map("initial_value") @db.Decimal(14, 3)
+
+  /// How many days before the deadline the app starts to warn. Per goal (owner's decision).
+  deadlineWarningDays Int @default(3) @map("deadline_warning_days")
+
+  /// A key the client makes up for one creation, so a retried "Готово" returns the goal it
+  /// already made instead of a second one.
+  creationKey String? @map("creation_key") @db.Uuid
 
   status      GoalStatus @default(active)
   outcomeNote String?    @map("outcome_note")
@@ -67,6 +84,10 @@ model Goal {
   position    Int
   completedAt DateTime?  @map("completed_at")
 
+  /// In the trash since this moment; purged 30 days later. Stages and steps deleted with the
+  /// goal keep their own marks empty, so restoring the goal brings them back as they were.
+  deletedAt DateTime? @map("deleted_at")
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -75,8 +96,11 @@ model Goal {
   primaryOf    LifeGoal? @relation("LifeGoalPrimaryGoal")
   stages       GoalStage[]
   notes        Note[]
+  progressEntries GoalProgressEntry[]
 
+  @@unique([userId, creationKey], map: "goals_user_id_creation_key_key")
   @@index([userId, status], map: "goals_user_id_status_idx")
+  @@index([deletedAt], map: "goals_deleted_at_idx")
   @@index([lifeGoalId, position], map: "goals_life_goal_id_position_idx")
   @@map("goals")
 }
@@ -86,8 +110,12 @@ model GoalStage {
   goalId String @map("goal_id") @db.Uuid
   userId String @map("user_id") @db.Uuid
 
-  title    String
-  position Int
+  title       String
+  /// No length limit (§14 of PRD.md).
+  description String?
+  position    Int
+
+  deletedAt DateTime? @map("deleted_at")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -97,6 +125,7 @@ model GoalStage {
   steps GoalStep[]
 
   @@index([goalId, position], map: "goal_stages_goal_id_position_idx")
+  @@index([deletedAt], map: "goal_stages_deleted_at_idx")
   @@map("goal_stages")
 }
 
@@ -105,7 +134,9 @@ model GoalStep {
   stageId String @map("stage_id") @db.Uuid
   userId  String @map("user_id") @db.Uuid
 
-  title String
+  title       String
+  /// No length limit (§14 of PRD.md).
+  description String?
 
   /// How long the person expects this to take, in minutes. Optional: an estimate is a planning
   /// aid, and demanding one would stop the tree being written quickly.
@@ -114,6 +145,8 @@ model GoalStep {
   /// Completion is a moment, not a flag, so the day screen and the statistics can both ask when.
   completedAt DateTime? @map("completed_at")
   position    Int
+
+  deletedAt DateTime? @map("deleted_at")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -124,5 +157,31 @@ model GoalStep {
 
   @@index([stageId, position], map: "goal_steps_stage_id_position_idx")
   @@index([userId, completedAt], map: "goal_steps_user_id_completed_at_idx")
+  @@index([deletedAt], map: "goal_steps_deleted_at_idx")
   @@map("goal_steps")
+}
+
+/// One row per change of a goal's number: a manual record, or a recount after steps, the target
+/// or the mode changed. "Движение целей" in the statistics is drawn from these.
+model GoalProgressEntry {
+  id     String @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  goalId String @map("goal_id") @db.Uuid
+  userId String @map("user_id") @db.Uuid
+
+  value Decimal @db.Decimal(14, 3)
+  /// Share of the way from the start to the target, 0..1, as it stood then. Stored because the
+  /// target and the start can change later and the old point must not move.
+  ratio Float
+  /// Why the number moved: manual, steps, target, mode, created. Text, like task types: new
+  /// reasons need no migration.
+  reason String
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  goal Goal @relation(fields: [goalId], references: [id], onDelete: Cascade, map: "goal_progress_entries_goal_id_fkey")
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade, map: "goal_progress_entries_user_id_fkey")
+
+  @@index([goalId, createdAt], map: "goal_progress_entries_goal_id_created_at_idx")
+  @@index([userId, createdAt], map: "goal_progress_entries_user_id_created_at_idx")
+  @@map("goal_progress_entries")
 }

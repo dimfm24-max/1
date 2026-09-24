@@ -68,6 +68,33 @@ maybeDescribe('users API integration', () => {
     }
   })
 
+  test('a new account starts in the first-run wizard until it is marked done', async () => {
+    const session = await register('wizard@example.com')
+    expect(session.user.onboardingCompleted).toBe(false)
+
+    const done = await app.request('/api/users/me/onboarding', {
+      method: 'POST',
+      headers: authenticatedHeaders(session.accessToken),
+    })
+    expect(done.status).toBe(200)
+    expect((await done.json()).user.onboardingCompleted).toBe(true)
+    const first = await prisma.user.findUniqueOrThrow({ where: { email: 'wizard@example.com' } })
+
+    // Asking again keeps the first moment, and the flag comes with the account on every load.
+    await app.request('/api/users/me/onboarding', {
+      method: 'POST',
+      headers: authenticatedHeaders(session.accessToken),
+    })
+    const again = await prisma.user.findUniqueOrThrow({ where: { email: 'wizard@example.com' } })
+    expect(again.onboardingCompletedAt).toEqual(first.onboardingCompletedAt)
+    const me = await app.request('/api/auth/me', {
+      headers: authenticatedHeaders(session.accessToken),
+    })
+    expect((await me.json()).user.onboardingCompleted).toBe(true)
+
+    expect((await app.request('/api/users/me/onboarding', { method: 'POST' })).status).toBe(401)
+  })
+
   test('rejects an unauthenticated profile update', async () => {
     const response = await app.request('/api/users/me', {
       method: 'PATCH',

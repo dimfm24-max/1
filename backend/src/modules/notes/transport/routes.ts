@@ -111,7 +111,7 @@ export function createNotesRoutes({ repository, requireAuth }: CreateNotesRoutes
 
   routes.openapi(deleteNoteRoute, async (c) => {
     const notes = await executeNotes(() =>
-      repository.remove(c.var.user.id, c.req.valid('param').noteId),
+      repository.remove(c.var.user.id, c.req.valid('param').noteId, new Date()),
     )
     return c.json({ notes }, 200)
   })

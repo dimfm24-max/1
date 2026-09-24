@@ -25,6 +25,12 @@ import { Typography } from '@/components/typography'
 const themes = ['system', 'light', 'dark'] as const
 type Theme = typeof themes[number]
 
+const themeLabels = {
+  system: 'Как в системе',
+  light: 'Светлая',
+  dark: 'Тёмная',
+} as const
+
 const themeIcons = {
   system: ComputerIcon,
   light: Sun01Icon,
@@ -39,15 +45,15 @@ export function AppearancePanel() {
     <Card>
       <CardHeader>
         <Typography as="h2" variant="h6">
-          Appearance
+          Оформление
         </Typography>
         <CardDescription>
-          Follow your device preference or keep a consistent light or dark theme.
+          Тёмная, светлая или как в системе.
         </CardDescription>
       </CardHeader>
       <CardContent>
         <Field>
-          <FieldLabel htmlFor="appearance-theme">Theme</FieldLabel>
+          <FieldLabel htmlFor="appearance-theme">Тема</FieldLabel>
           <Select
             onValueChange={(value) => {
               if (isTheme(value)) setTheme(value)
@@ -59,15 +65,15 @@ export function AppearancePanel() {
             </SelectTrigger>
             <SelectContent>
               {themes.map((item) => (
-                <SelectItem className="capitalize" key={item} value={item}>
+                <SelectItem key={item} value={item}>
                   <HugeiconsIcon aria-hidden icon={themeIcons[item]} strokeWidth={2} />
-                  {item}
+                  {themeLabels[item]}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
           <FieldDescription>
-            Changes are saved in this browser and applied immediately.
+            Меняется сразу и запоминается в этом браузере.
           </FieldDescription>
         </Field>
       </CardContent>

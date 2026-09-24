@@ -4,7 +4,6 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import {
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -15,31 +14,50 @@ import { DashboardLink } from './DashboardLink'
 
 export type DashboardNavigationItem = {
   icon: IconSvgElement
+  id: string
   isActive: boolean
   label: string
   to: WorkspaceRoutePath
 }
 
+/**
+ * One block of menu links. `bottom` pins the block to the foot of the sidebar, which is where
+ * the account and sharing screens live, apart from the sections a day is lived in.
+ */
 export function NavMain({
   items,
+  label,
+  placement = 'top',
+  testId,
 }: {
   items: ReadonlyArray<DashboardNavigationItem>
+  label: string
+  placement?: 'top' | 'bottom'
+  testId?: string
 }) {
   return (
-    <nav aria-label="Primary navigation">
+    <nav
+      aria-label={label}
+      className={placement === 'bottom' ? 'mt-auto' : undefined}
+      data-testid={testId}
+    >
       <SidebarGroup>
-        <SidebarGroupLabel>Workspace</SidebarGroupLabel>
         <SidebarGroupContent>
-          <SidebarMenu>
+          <SidebarMenu className="gap-1">
             {items.map((item) => (
               <SidebarMenuItem key={item.to}>
                 <SidebarMenuButton
                   asChild
+                  className="h-10 gap-3 px-3 [&_svg]:size-5"
                   isActive={item.isActive}
                   tooltip={item.label}
                 >
-                  <DashboardLink to={item.to}>
-                    <HugeiconsIcon icon={item.icon} strokeWidth={2} />
+                  <DashboardLink data-testid={`nav-${item.id}`} to={item.to}>
+                    <HugeiconsIcon
+                      className="group-data-[active=true]/menu-button:text-sidebar-primary"
+                      icon={item.icon}
+                      strokeWidth={1.8}
+                    />
                     <Typography asChild variant="control">
                       <span>{item.label}</span>
                     </Typography>

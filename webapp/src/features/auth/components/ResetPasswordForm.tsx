@@ -7,7 +7,7 @@ import { Typography } from '@/components/typography'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field'
-import { ApiRequestError } from '@/platform/api'
+import { describeApiError } from '@/platform/api'
 import { useAuth } from '../use-auth'
 import { FormAlert } from './form-errors'
 import type { FieldErrors } from './form-model'
@@ -30,7 +30,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
   const confirmPasswordErrorId = useId()
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   const [formError, setFormError] = useState<string | null>(
-    tokenIsValid ? null : 'This password reset link is invalid or incomplete.',
+    tokenIsValid ? null : 'Ссылка для смены пароля неполная или неверная. Запроси новую.',
   )
   const [completed, setCompleted] = useState(false)
   const form = useForm({
@@ -61,9 +61,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
         setCompleted(true)
       } catch (caughtError) {
         setFormError(
-          caughtError instanceof ApiRequestError
-            ? caughtError.message
-            : 'Unable to reset your password',
+          describeApiError(caughtError, 'Не получилось сменить пароль. Попробуй ещё раз.'),
         )
       }
     },
@@ -80,23 +78,23 @@ export function ResetPasswordForm({ token }: { token: string }) {
       <FieldGroup>
         <div className="flex flex-col items-center gap-1 text-center">
           <Typography as="h1" variant="h3" balance>
-            Choose a new password
+            Новый пароль
           </Typography>
           <Typography variant="bodySm" tone="muted" balance>
-            Your new password will sign out every existing session
+            После смены пароля все входы на других устройствах завершатся
           </Typography>
         </div>
 
         {completed ? (
           <Alert>
-            <AlertTitle>Password updated</AlertTitle>
-            <AlertDescription>You can now sign in with your new password.</AlertDescription>
+            <AlertTitle>Пароль сменён</AlertTitle>
+            <AlertDescription>Теперь входи с новым паролем.</AlertDescription>
           </Alert>
         ) : (
           <>
             <form.Field name="password" children={(field) => (
               <Field data-invalid={hasErrors(fieldErrors.password)}>
-                <FieldLabel htmlFor={passwordId}>New Password</FieldLabel>
+                <FieldLabel htmlFor={passwordId}>Новый пароль</FieldLabel>
                 <PasswordInput
                   aria-describedby={[
                     passwordDescriptionId,
@@ -113,14 +111,14 @@ export function ResetPasswordForm({ token }: { token: string }) {
                     clearFieldError('password', setFieldErrors)
                     clearFieldError('confirmPassword', setFieldErrors)
                     setFormError(
-                      tokenIsValid ? null : 'This password reset link is invalid or incomplete.',
+                      tokenIsValid ? null : 'Ссылка для смены пароля неполная или неверная. Запроси новую.',
                     )
                   }}
                   value={field.state.value}
-                  visibilityLabel="replacement password"
+                  visibilityLabel="новый пароль"
                 />
                 <FieldDescription id={passwordDescriptionId}>
-                  Must be at least 8 characters long.
+                  Не короче 8 знаков.
                 </FieldDescription>
                 <FieldError id={passwordErrorId} errors={fieldErrors.password} />
               </Field>
@@ -128,7 +126,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
 
             <form.Field name="confirmPassword" children={(field) => (
               <Field data-invalid={hasErrors(fieldErrors.confirmPassword)}>
-                <FieldLabel htmlFor={confirmPasswordId}>Confirm Password</FieldLabel>
+                <FieldLabel htmlFor={confirmPasswordId}>Пароль ещё раз</FieldLabel>
                 <PasswordInput
                   aria-describedby={errorId(fieldErrors.confirmPassword, confirmPasswordErrorId)}
                   aria-invalid={hasErrors(fieldErrors.confirmPassword)}
@@ -141,22 +139,26 @@ export function ResetPasswordForm({ token }: { token: string }) {
                     field.handleChange(event.target.value)
                     clearFieldError('confirmPassword', setFieldErrors)
                     setFormError(
-                      tokenIsValid ? null : 'This password reset link is invalid or incomplete.',
+                      tokenIsValid ? null : 'Ссылка для смены пароля неполная или неверная. Запроси новую.',
                     )
                   }}
                   value={field.state.value}
-                  visibilityLabel="password confirmation"
+                  visibilityLabel="повтор пароля"
                 />
                 <FieldError id={confirmPasswordErrorId} errors={fieldErrors.confirmPassword} />
               </Field>
             )} />
 
-            <FormAlert message={formError} title="Password reset failed" />
+            <FormAlert message={formError} title="Пароль не сменён" />
 
             <Field>
               <form.Subscribe selector={(state) => state.isSubmitting} children={(isSubmitting) => (
-                <Button disabled={isSubmitting || !tokenIsValid} type="submit">
-                  {isSubmitting ? 'Updating password…' : 'Update password'}
+                <Button
+                  data-testid="reset-submit"
+                  disabled={isSubmitting || !tokenIsValid}
+                  type="submit"
+                >
+                  {isSubmitting ? 'Меняем пароль…' : 'Сменить пароль'}
                 </Button>
               )} />
             </Field>
@@ -165,7 +167,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
 
         <Typography align="center" variant="bodySm">
           <Link className="underline underline-offset-4" search={{ returnTo: undefined }} to="/login">
-            Back to login
+            Вернуться ко входу
           </Link>
         </Typography>
       </FieldGroup>

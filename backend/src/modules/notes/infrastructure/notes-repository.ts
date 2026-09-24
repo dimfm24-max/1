@@ -26,14 +26,17 @@ export function createPrismaNotesRepository(db: DbClient): NotesRepository {
   /** A goal id is accepted only when it belongs to this person; anything else is refused. */
   async function ownedGoalId(userId: string, goalId: string | null) {
     if (goalId === null) return null
-    const goal = await db.goal.findFirst({ where: { id: goalId, userId }, select: { id: true } })
+    const goal = await db.goal.findFirst({
+      where: { id: goalId, userId, deletedAt: null },
+      select: { id: true },
+    })
     if (!goal) throw new NotesFailure('not_found', 'Goal not found')
     return goal.id
   }
 
   async function list(userId: string, goalId?: string) {
     const notes = await db.note.findMany({
-      where: { userId, ...(goalId === undefined ? {} : { goalId }) },
+      where: { userId, deletedAt: null, ...(goalId === undefined ? {} : { goalId }) },
       // Most recently touched first: the notes screen is a stack of what is currently on a
       // person's mind, not an archive in the order things were written.
       orderBy: { updatedAt: 'desc' },
@@ -60,7 +63,7 @@ export function createPrismaNotesRepository(db: DbClient): NotesRepository {
 
     async update(userId, noteId, input: UpdateNoteRequest) {
       const note = await db.note.findFirst({
-        where: { id: noteId, userId },
+        where: { id: noteId, userId, deletedAt: null },
         select: { id: true },
       })
       if (!note) throw new NotesFailure('not_found', 'Note not found')
@@ -79,8 +82,11 @@ export function createPrismaNotesRepository(db: DbClient): NotesRepository {
       return toDto(updated as NoteRow)
     },
 
-    async remove(userId, noteId) {
-      const deleted = await db.note.deleteMany({ where: { id: noteId, userId } })
+    async remove(userId, noteId, now) {
+      const deleted = await db.note.updateMany({
+        where: { id: noteId, userId, deletedAt: null },
+        data: { deletedAt: now },
+      })
       if (deleted.count === 0) throw new NotesFailure('not_found', 'Note not found')
       return list(userId)
     },

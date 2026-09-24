@@ -11,7 +11,12 @@ import {
   dayContextResponseSchema,
   dayParamsSchema,
   dayResponseSchema,
+  deleteTaskQuerySchema,
+  repeatTaskRequestSchema,
   resolveTaskRequestSchema,
+  saveDayAsTemplateRequestSchema,
+  seriesIdParamsSchema,
+  stepPlansResponseSchema,
   settingsResponseSchema,
   subtaskIdParamsSchema,
   taskIdParamsSchema,
@@ -23,8 +28,11 @@ import {
   updateSettingsRequestSchema,
   updateSubtaskRequestSchema,
   updateTaskRequestSchema,
+  updateTemplateItemRequestSchema,
+  updateTemplateRequestSchema,
 } from '@dilife/contracts'
 import { createRoute, OpenAPIHono } from '@hono/zod-openapi'
+import { z } from 'zod'
 import type { MiddlewareHandler } from 'hono'
 
 import { validationErrorHook } from '../../../http/errors'
@@ -125,7 +133,7 @@ const deleteTaskRoute = createRoute({
   method: 'delete',
   path: '/tasks/{taskId}',
   security: bearerSecurity,
-  request: { params: taskIdParamsSchema },
+  request: { params: taskIdParamsSchema, query: deleteTaskQuerySchema },
   responses: {
     ...withNotFound,
     200: {
@@ -269,6 +277,100 @@ const applyTemplateRoute = createRoute({
   },
 })
 
+const repeatTaskRoute = createRoute({
+  method: 'put',
+  path: '/tasks/{taskId}/repeat',
+  security: bearerSecurity,
+  request: {
+    params: taskIdParamsSchema,
+    body: { content: { 'application/json': { schema: repeatTaskRequestSchema } } },
+  },
+  responses: {
+    ...withNotFound,
+    ...taskOk,
+    409: { content: errorContent, description: 'A goal step does not repeat' },
+  },
+})
+
+const stopRepeatRoute = createRoute({
+  method: 'delete',
+  path: '/series/{seriesId}',
+  security: bearerSecurity,
+  request: { params: seriesIdParamsSchema },
+  responses: {
+    ...withNotFound,
+    200: {
+      content: {
+        'application/json': { schema: z.object({ stopped: z.literal(true) }).strict() },
+      },
+      description: 'The repeat ends today; later untouched occurrences are in the trash',
+    },
+  },
+})
+
+const stepPlansRoute = createRoute({
+  method: 'get',
+  path: '/step-plans',
+  security: bearerSecurity,
+  responses: {
+    ...commonErrors,
+    200: {
+      content: { 'application/json': { schema: stepPlansResponseSchema } },
+      description: 'Goal steps planned from today on',
+    },
+  },
+})
+
+const appliedTemplatesRoute = createRoute({
+  method: 'get',
+  path: '/{date}/applied-templates',
+  security: bearerSecurity,
+  request: { params: dayParamsSchema },
+  responses: {
+    ...commonErrors,
+    200: {
+      content: {
+        'application/json': {
+          schema: z.object({ templateIds: z.array(z.string()) }).strict(),
+        },
+      },
+      description: 'Templates already applied to the day',
+    },
+  },
+})
+
+const updateTemplateRoute = createRoute({
+  method: 'patch',
+  path: '/templates/{templateId}',
+  security: bearerSecurity,
+  request: {
+    params: templateIdParamsSchema,
+    body: { content: { 'application/json': { schema: updateTemplateRequestSchema } } },
+  },
+  responses: { ...withNotFound, ...templatesOk },
+})
+
+const updateTemplateItemRoute = createRoute({
+  method: 'patch',
+  path: '/template-items/{itemId}',
+  security: bearerSecurity,
+  request: {
+    params: templateItemIdParamsSchema,
+    body: { content: { 'application/json': { schema: updateTemplateItemRequestSchema } } },
+  },
+  responses: { ...withNotFound, ...templatesOk },
+})
+
+const saveDayAsTemplateRoute = createRoute({
+  method: 'post',
+  path: '/templates/from-day',
+  security: bearerSecurity,
+  request: {
+    body: { content: { 'application/json': { schema: saveDayAsTemplateRequestSchema } } },
+  },
+  responses: { ...commonErrors, ...templatesOk },
+})
+
 type CreateDayRoutesOptions = {
   requireAuth: MiddlewareHandler<AuthHttpEnv>
   service: DayService
@@ -282,6 +384,52 @@ export function createDayRoutes({ requireAuth, service }: CreateDayRoutesOptions
   // Registered before `/{date}`, which would otherwise match the literal path first.
   routes.openapi(readContextRoute, async (c) => {
     return c.json(await executeDay(() => service.readContext(c.var.user)), 200)
+  })
+
+  routes.openapi(stepPlansRoute, async (c) => {
+    return c.json(await executeDay(() => service.readStepPlans(c.var.user)), 200)
+  })
+
+  routes.openapi(appliedTemplatesRoute, async (c) => {
+    const result = await executeDay(() =>
+      service.appliedTemplates(c.var.user, c.req.valid('param').date),
+    )
+    return c.json(result, 200)
+  })
+
+  routes.openapi(repeatTaskRoute, async (c) => {
+    const result = await executeDay(() =>
+      service.repeatTask(c.var.user, c.req.valid('param').taskId, c.req.valid('json')),
+    )
+    return c.json(result, 200)
+  })
+
+  routes.openapi(stopRepeatRoute, async (c) => {
+    const result = await executeDay(() =>
+      service.stopRepeat(c.var.user, c.req.valid('param').seriesId),
+    )
+    return c.json(result, 200)
+  })
+
+  routes.openapi(saveDayAsTemplateRoute, async (c) => {
+    const result = await executeDay(() =>
+      service.saveDayAsTemplate(c.var.user, c.req.valid('json')),
+    )
+    return c.json(result, 200)
+  })
+
+  routes.openapi(updateTemplateRoute, async (c) => {
+    const result = await executeDay(() =>
+      service.updateTemplate(c.var.user, c.req.valid('param').templateId, c.req.valid('json')),
+    )
+    return c.json(result, 200)
+  })
+
+  routes.openapi(updateTemplateItemRoute, async (c) => {
+    const result = await executeDay(() =>
+      service.updateTemplateItem(c.var.user, c.req.valid('param').itemId, c.req.valid('json')),
+    )
+    return c.json(result, 200)
   })
 
   routes.openapi(createTaskRoute, async (c) => {
@@ -305,7 +453,7 @@ export function createDayRoutes({ requireAuth, service }: CreateDayRoutesOptions
 
   routes.openapi(deleteTaskRoute, async (c) => {
     const day = await executeDay(() =>
-      service.deleteTask(c.var.user, c.req.valid('param').taskId),
+      service.deleteTask(c.var.user, c.req.valid('param').taskId, c.req.valid('query').scope),
     )
     return c.json(day, 200)
   })

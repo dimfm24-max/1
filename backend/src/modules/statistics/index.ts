@@ -2,12 +2,14 @@ import type { MiddlewareHandler } from 'hono'
 
 import type { DbClient } from '../../db'
 import type { AuthHttpEnv } from '../auth'
+import type { SettingsReader } from '../settings'
 import { createPrismaStatisticsRepository } from './infrastructure/statistics-repository'
 import { createStatisticsRoutes } from './transport/routes'
 
 type CreateStatisticsModuleOptions = {
   db: DbClient
   requireAuth: MiddlewareHandler<AuthHttpEnv>
+  settings: SettingsReader
 }
 
 /**
@@ -18,7 +20,11 @@ export function createStatisticsModule(options: CreateStatisticsModuleOptions) {
   const repository = createPrismaStatisticsRepository(options.db)
 
   return {
-    routes: createStatisticsRoutes({ reader: repository, requireAuth: options.requireAuth }),
+    routes: createStatisticsRoutes({
+      reader: repository,
+      requireAuth: options.requireAuth,
+      settings: options.settings,
+    }),
     reader: repository,
   }
 }

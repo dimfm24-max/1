@@ -11,23 +11,30 @@ import { AuthFailure } from '../domain/errors'
 import { sessionExpiresAt, type SessionMetadata } from '../domain/session'
 import type { AuthUserRecord, AuthenticatedPrincipal } from '../domain/user'
 import { toUserDto, userDtoFromPrincipal } from '../domain/user'
-import type {
-  AccessTokens,
-  AuthRepository,
-  Clock,
-  LogoutCleanup,
-  PasswordResetNotifier,
-  PasswordResetTaskQueue,
-  PasswordResetTokens,
-  Passwords,
-  RefreshTokens,
-  SocialIdentities,
+import {
+  emailVerificationTask,
+  emailVerificationTokenTtlHours,
+  type AccessTokens,
+  type AuthRepository,
+  type Clock,
+  type EmailVerificationTaskQueue,
+  type LogoutCleanup,
+  type PasswordResetNotifier,
+  type PasswordResetTaskQueue,
+  type PasswordResetTokens,
+  type Passwords,
+  type QueuedTask,
+  type RefreshTokens,
+  type SocialIdentities,
 } from './ports'
 
 type AuthServiceDependencies = {
   accessTokens: AccessTokens
   passwordResetTasks: PasswordResetTaskQueue
   clock: Clock
+  emailVerificationTasks: EmailVerificationTaskQueue
+  /** The same kind of one-time token as a password reset: random, stored only as a hash. */
+  emailVerificationTokens: PasswordResetTokens
   logoutCleanup: LogoutCleanup
   passwordResetCooldownSeconds: number
   passwordResetNotifier: PasswordResetNotifier
@@ -68,6 +75,10 @@ export class AuthService {
     const passwordHash = await this.dependencies.passwords.hash(input.password)
     const now = this.dependencies.clock.now()
     const refreshToken = this.dependencies.refreshTokens.create()
+    const queueVerification = (await this.canQueueEmailVerification(now))
+      ? (userId: string, enqueue: (task: QueuedTask) => Promise<void>) =>
+          enqueue(emailVerificationTask(userId, now))
+      : undefined
     const { user, session } = await this.dependencies.repository.createPasswordUserWithSession({
       user: { ...input, passwordHash },
       session: {
@@ -76,6 +87,7 @@ export class AuthService {
         expiresAt: this.refreshExpiresAt(now),
         metadata,
       },
+      queueVerification,
     })
 
     return this.sessionResponse(user, session.id, refreshToken)
@@ -219,6 +231,75 @@ export class AuthService {
     }
 
     return 'done'
+  }
+
+  /**
+   * One more confirmation letter for the signed-in person. Always "accepted": a verified address,
+   * a full queue and a cooldown all end the same way, and the banner says what to do next.
+   */
+  async requestEmailVerification(principal: AuthenticatedPrincipal) {
+    const now = this.dependencies.clock.now()
+    if (!principal.emailVerified && (await this.canQueueEmailVerification(now))) {
+      await this.dependencies.emailVerificationTasks.enqueue(
+        emailVerificationTask(principal.id, now),
+      )
+    }
+    return { accepted: true as const }
+  }
+
+  /** The outbox half: mint a link and send it. Failure handling mirrors password reset. */
+  async deliverEmailVerification(
+    input: { userId: string },
+    { finalAttempt, now, signal }: { finalAttempt: boolean; now: Date; signal: AbortSignal },
+  ): Promise<'done' | 'skipped'> {
+    const { passwordResetNotifier: notifier, repository } = this.dependencies
+    const user = await repository.findUserById(input.userId)
+    if (!user || user.emailVerifiedAt) return 'skipped'
+
+    const token = this.dependencies.emailVerificationTokens.create()
+    const tokenHash = this.dependencies.emailVerificationTokens.hash(token)
+    const created = await repository.createEmailVerificationToken({
+      userId: user.id,
+      tokenHash,
+      expiresAt: new Date(now.getTime() + emailVerificationTokenTtlHours * 60 * 60 * 1000),
+      now,
+      createdAfter: new Date(
+        now.getTime() - this.dependencies.passwordResetCooldownSeconds * 1000,
+      ),
+    })
+    if (!created) return 'skipped'
+
+    try {
+      await notifier.sendEmailVerification({ email: user.email, token }, signal)
+    } catch (error) {
+      if (finalAttempt || notifier.isPermanentFailure(error)) {
+        await repository.invalidateEmailVerificationToken({ tokenHash, now })
+      }
+      throw error
+    }
+    return 'done'
+  }
+
+  async confirmEmailVerification(input: { token: string }) {
+    const verified = await this.dependencies.repository.completeEmailVerification({
+      tokenHash: this.dependencies.emailVerificationTokens.hash(input.token),
+      now: this.dependencies.clock.now(),
+    })
+    if (!verified) {
+      throw new AuthFailure(
+        'email_verification_invalid',
+        'Email verification link is invalid or expired',
+      )
+    }
+    return { verified: true as const }
+  }
+
+  /** Nothing is queued when no provider is wired, or while the queue is at its ceiling. */
+  private async canQueueEmailVerification(now: Date) {
+    return (
+      this.dependencies.passwordResetNotifier.configured &&
+      (await this.dependencies.emailVerificationTasks.hasRoom(now))
+    )
   }
 
   async confirmPasswordReset(input: PasswordResetConfirmRequest) {

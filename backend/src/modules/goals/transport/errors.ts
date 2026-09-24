@@ -18,6 +18,12 @@ export function toGoalsAppError(error: unknown) {
   if (error.kind === 'progress_not_manual') {
     return new AppError(409, 'GOAL_PROGRESS_NOT_MANUAL', error.message)
   }
+  if (error.kind === 'deadline_in_past') {
+    return new AppError(400, 'GOAL_DEADLINE_IN_PAST', error.message)
+  }
+  if (error.kind === 'invalid_input') {
+    return new AppError(400, 'VALIDATION_ERROR', error.message)
+  }
   return new AppError(409, 'GOAL_CLOSED', error.message)
 }
 

@@ -44,6 +44,10 @@ async function bootstrapDevelopmentUser(
         data: {
           displayName: 'Development User',
           email: credentials.email,
+          // The seed account has no mailbox; it starts confirmed so nothing waits on a letter.
+          emailVerifiedAt: new Date(),
+          // A demo account that opens straight into the app, not the first-run wizard.
+          onboardingCompletedAt: new Date(),
           passwordHash: await Bun.password.hash(credentials.password, { algorithm: 'argon2id' }),
         },
         select: { email: true, id: true },
@@ -60,6 +64,15 @@ async function updateExistingDevelopmentUser(
   existing: { id: string; passwordHash: string | null },
   credentials: DevelopmentSeedAccounts['user'],
 ) {
+  // Seeded before email confirmation existed: confirm it the same way a new seed account is.
+  await db.user.updateMany({
+    where: { id: existing.id, emailVerifiedAt: null },
+    data: { emailVerifiedAt: new Date() },
+  })
+  await db.user.updateMany({
+    where: { id: existing.id, onboardingCompletedAt: null },
+    data: { onboardingCompletedAt: new Date() },
+  })
   if (
     existing.passwordHash !== null &&
     await matchesPassword(credentials.password, existing.passwordHash)

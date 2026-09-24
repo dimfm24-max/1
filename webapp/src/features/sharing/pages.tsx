@@ -23,8 +23,8 @@ import { Spinner } from '@/components/ui/spinner'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { sessionQueryKeys, useAuth } from '@/features/auth'
-import { toDayDate } from '@/features/day'
 import { HttpClient } from '@/platform/api'
+import { formatNumber } from '@/platform/intl'
 
 const commentsSchema = z.object({ comments: z.array(shareCommentSchema) })
 
@@ -69,7 +69,7 @@ export function SharingSettingsPage() {
     return (
       <Alert data-testid="share-error" variant="destructive">
         <AlertTitle>Не удалось загрузить настройки доступа</AlertTitle>
-        <AlertDescription>Проверьте соединение и обновите страницу.</AlertDescription>
+        <AlertDescription>Проверь интернет и обнови страницу.</AlertDescription>
       </Alert>
     )
   }
@@ -175,7 +175,6 @@ function SectionSwitches({
  * than through the authenticated transport - there is nothing to authenticate with.
  */
 export function PublicProfilePage({ token }: { token: string }) {
-  const [today] = useState(() => toDayDate(new Date()))
   const client = new HttpClient()
   const queryClient = useQueryClient()
 
@@ -184,7 +183,7 @@ export function PublicProfilePage({ token }: { token: string }) {
       queryKey: shareQueryKeys.publicProfile(token),
       queryFn: ({ signal }) =>
         client.request(
-          `/api/share/public/${token}?today=${today}`,
+          `/api/share/public/${token}`,
           publicProfileResponseSchema,
           { signal },
         ),
@@ -265,7 +264,7 @@ export function PublicProfilePage({ token }: { token: string }) {
                     )}
                   </div>
                   <Typography tone="muted" variant="caption">
-                    {goal.currentValue} из {goal.targetValue} {goal.measureUnit} ·{' '}
+                    {formatNumber(goal.currentValue)} из {formatNumber(goal.targetValue)} {goal.measureUnit} ·{' '}
                     {goal.completedSteps} из {goal.totalSteps} шагов
                   </Typography>
                   <Progress
@@ -367,7 +366,7 @@ function CommentsPanel({
 
         <div className="flex flex-col gap-2">
           <Input
-            aria-label="Ваше имя"
+            aria-label="Твоё имя"
             data-testid="comment-name"
             maxLength={80}
             onChange={(event) => setAuthorName(event.target.value)}

@@ -4,12 +4,17 @@ import { useEffect, useState } from 'react'
 import { sessionQueryKeys, useAuth } from '@/features/auth'
 import type { AuthenticatedTransport } from '@/platform/api'
 import { createAvatarUpload, deleteAvatar, fetchAvatar, finalizeAvatarUpload } from './api'
-import { AvatarUploadError, describeAvatarFile, uploadAvatarObject } from './upload'
+import {
+  AvatarUploadError,
+  describeAvatarFile,
+  prepareAvatarFile,
+  uploadAvatarObject,
+} from './upload'
 
 function describeRejection(reason: 'type' | 'too-small' | 'too-large') {
-  if (reason === 'type') return 'Pick a JPEG, PNG, or HEIC image.'
-  if (reason === 'too-small') return 'That file is too small to be a photo. Pick another one.'
-  return 'Pick an image smaller than 5 MB.'
+  if (reason === 'type') return 'Выбери фото в JPEG, PNG, WebP или HEIC.'
+  if (reason === 'too-small') return 'Файл слишком маленький для фото. Выбери другой.'
+  return 'Выбери фото меньше 5 МБ.'
 }
 
 // Session-scoped on purpose: an avatar belongs to whoever is signed in, and the cache lives in a
@@ -40,7 +45,8 @@ export function useUploadAvatarMutation() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (file: File) => {
+    mutationFn: async (picked: File) => {
+      const file = await prepareAvatarFile(picked)
       const described = describeAvatarFile(file)
       if (!described.ok) {
         throw new AvatarUploadError('unsupported-file', describeRejection(described.reason))

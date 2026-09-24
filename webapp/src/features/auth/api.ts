@@ -3,6 +3,9 @@ import {
   cookieLogoutRequestSchema,
   cookieRefreshRequestSchema,
   cookieRefreshResponseSchema,
+  emailVerificationConfirmRequestSchema,
+  emailVerificationConfirmResponseSchema,
+  emailVerificationRequestResponseSchema,
   loginRequestSchema,
   meResponseSchema,
   passwordResetConfirmRequestSchema,
@@ -27,6 +30,7 @@ import {
 import {
   currentBrowserSessionEpoch,
   isBrowserSessionEpochCurrent,
+  publishAccountChanged,
   publishBrowserSessionState,
 } from './session-coordinator'
 
@@ -109,6 +113,25 @@ export class AuthApi {
       this.options.setAccessToken(null)
       return { data: undefined, sessionEpoch: sessionEvent.epoch }
     })
+  }
+
+  /** Works without a session: the letter is often opened where the person is not signed in. */
+  async confirmEmailVerification(token: string): Promise<void> {
+    const payload = emailVerificationConfirmRequestSchema.parse({ token })
+    await this.http.request(
+      '/api/auth/email-verification/confirm',
+      emailVerificationConfirmResponseSchema,
+      { method: 'POST', body: payload },
+    )
+    publishAccountChanged()
+  }
+
+  async requestEmailVerification(): Promise<void> {
+    await this.requestAuthenticated(
+      '/api/auth/email-verification/request',
+      emailVerificationRequestResponseSchema,
+      { method: 'POST', body: {} },
+    )
   }
 
   refresh(expectedEpoch = this.sessionEpoch): Promise<CookieRefreshResponse> {

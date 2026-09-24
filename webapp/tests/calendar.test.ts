@@ -45,6 +45,6 @@ test('moving between months crosses years', () => {
 })
 
 test('names the month the way a person reads it', () => {
-  expect(formatMonth('2026-09')).toBe('сентябрь 2026')
-  expect(formatMonth('2026-01')).toBe('январь 2026')
+  expect(formatMonth('2026-09')).toBe('Сентябрь 2026')
+  expect(formatMonth('2026-01')).toBe('Январь 2026')
 })

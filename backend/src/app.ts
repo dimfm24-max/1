@@ -21,6 +21,8 @@ import { createNotesModule } from './modules/notes'
 import { createSharingModule } from './modules/sharing'
 import { createStatisticsModule } from './modules/statistics'
 import { createNotificationsModule } from './modules/notifications'
+import { createSettingsModule } from './modules/settings'
+import { createTrashModule } from './modules/trash'
 import { createUploadsModule } from './modules/uploads'
 import { createUsersModule } from './modules/users'
 import { createRateLimitStores } from './rate-limit'
@@ -41,10 +43,16 @@ type CreateAppOptions = {
    * it at a temporary directory instead of the configured root.
    */
   privateStorage?: PrivateStorageRuntime
+  /**
+   * The clock every "which day is it for this person" answer is read from. Injectable so tests
+   * can stand on a chosen day; production uses the system clock.
+   */
+  clock?: { now(): Date }
 }
 
 export function createApp({
   backgroundTasks = createBackgroundTasks(),
+  clock,
   emailDelivery = disabledEmailDelivery,
   env,
   prisma,
@@ -65,12 +73,35 @@ export function createApp({
     db: prisma,
     requireAuth: auth.requireAuth,
   })
-  const goals = createGoalsModule({ db: prisma, requireAuth: auth.requireAuth })
-  const day = createDayModule({ db: prisma, requireAuth: auth.requireAuth })
-  const habits = createHabitsModule({ db: prisma, requireAuth: auth.requireAuth })
-  const statistics = createStatisticsModule({ db: prisma, requireAuth: auth.requireAuth })
+  const settings = createSettingsModule({ clock, db: prisma, requireAuth: auth.requireAuth })
+  const goals = createGoalsModule({
+    clock,
+    db: prisma,
+    requireAuth: auth.requireAuth,
+    today: (userId) => settings.service.today(userId),
+  })
+  const day = createDayModule({
+    db: prisma,
+    requireAuth: auth.requireAuth,
+    settings: settings.service,
+  })
+  const habits = createHabitsModule({
+    db: prisma,
+    requireAuth: auth.requireAuth,
+    settings: settings.service,
+  })
+  const statistics = createStatisticsModule({
+    db: prisma,
+    requireAuth: auth.requireAuth,
+    settings: settings.service,
+  })
   const notes = createNotesModule({ db: prisma, requireAuth: auth.requireAuth })
-  const sharing = createSharingModule({ db: prisma, requireAuth: auth.requireAuth })
+  const sharing = createSharingModule({
+    db: prisma,
+    requireAuth: auth.requireAuth,
+    settings: settings.service,
+  })
+  const trash = createTrashModule({ clock, db: prisma, requireAuth: auth.requireAuth })
   const uploads = createUploadsModule({
     backgroundTasks,
     db: prisma,
@@ -103,7 +134,8 @@ export function createApp({
       maxAge: 600,
     }),
   )
-  // Signing in and managing an account are two budgets of the same size, keyed by client address.
+  // Signing in and the signed-in data API are two budgets keyed by client address: a small one
+  // for signing in, a larger one for everyday work (API_RATE_LIMIT_MAX).
   // INGRESS_RATE_LIMIT_PROVIDER says whether this process limits at all; RATE_LIMIT_STORE says
   // where each budget counts when it does.
   const publicWriteSecurity = {
@@ -123,9 +155,11 @@ export function createApp({
   }
   for (const middleware of createIngressSecurity({
     ...publicWriteSecurity,
+    rateLimitMax: env.API_RATE_LIMIT_MAX,
     store: rateLimitStore('account'),
   })) {
     app.use('/api/users/*', middleware)
+    app.use('/api/settings/*', middleware)
     app.use('/api/goals/*', middleware)
     app.use('/api/day/*', middleware)
     app.use('/api/habits/*', middleware)
@@ -133,6 +167,7 @@ export function createApp({
     app.use('/api/notes/*', middleware)
     app.use('/api/share/*', middleware)
     app.use('/api/uploads/*', middleware)
+    app.use('/api/trash/*', middleware)
   }
   app.get('/', (c) => {
     return c.json({
@@ -167,6 +202,7 @@ export function createApp({
   })
   app.route('/api/auth', auth.routes)
   app.route('/api/users', users.userRoutes)
+  app.route('/api/settings', settings.routes)
   app.route('/api/goals', goals.routes)
   app.route('/api/day', day.routes)
   app.route('/api/habits', habits.routes)
@@ -175,6 +211,7 @@ export function createApp({
   app.route('/api/share', sharing.routes)
   app.route('/api/notifications', notifications.createRoutes(auth.authenticateAccessToken))
   app.route('/api/uploads', uploads.routes)
+  app.route('/api/trash', trash.routes)
 
   // Only the filesystem driver needs the backend to serve the URLs it signs. With an S3 driver
   // the browser uploads straight to the bucket and there is nothing to mount here.

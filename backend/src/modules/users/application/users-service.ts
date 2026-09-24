@@ -5,6 +5,7 @@ import type { ProfileWriter, UserRecord } from './ports'
 
 type UsersServiceDependencies = {
   profileWriter: ProfileWriter
+  clock?: { now(): Date }
 }
 
 export class UsersService {
@@ -20,12 +21,21 @@ export class UsersService {
     }
   }
 
+  /** The first-run wizard is done: from now on /app opens as usual (task 07). */
+  async completeOnboarding(principal: AuthenticatedPrincipal) {
+    const now = this.dependencies.clock?.now() ?? new Date()
+    const user = await this.dependencies.profileWriter.completeOnboarding(principal.id, now)
+    return { user: this.userDto(user) }
+  }
+
   private userDto(user: UserRecord): UserDto {
     return {
       id: user.id,
       email: user.email,
       displayName: user.displayName,
       createdAt: user.createdAt.toISOString(),
+      emailVerified: user.emailVerifiedAt !== null,
+      onboardingCompleted: user.onboardingCompletedAt !== null,
     }
   }
 }

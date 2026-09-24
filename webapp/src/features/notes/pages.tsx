@@ -21,6 +21,7 @@ import { NativeSelect } from '@/components/ui/native-select'
 import { Spinner } from '@/components/ui/spinner'
 import { Textarea } from '@/components/ui/textarea'
 import { sessionQueryKeys, useAuth } from '@/features/auth'
+import { useTrashedNotice } from '@/features/trash'
 import { useGoalTreeQuery } from '@/features/goals'
 import type { AuthenticatedTransport } from '@/platform/api'
 
@@ -56,7 +57,7 @@ export function NotesPage() {
     return (
       <Alert data-testid="notes-error" variant="destructive">
         <AlertTitle>Не удалось загрузить заметки</AlertTitle>
-        <AlertDescription>Проверьте соединение и обновите страницу.</AlertDescription>
+        <AlertDescription>Проверь интернет и обнови страницу.</AlertDescription>
       </Alert>
     )
   }
@@ -114,11 +115,13 @@ function NoteCard({ goalTitle, note }: { goalTitle?: string; note: NoteDto }) {
     },
   })
 
+  const notifyTrashed = useTrashedNotice()
   const remove = useMutation({
     mutationFn: () =>
       auth.transport.request(`/api/notes/${note.id}`, notesResponseSchema, { method: 'DELETE' }),
     onSuccess: (response) => {
       queryClient.setQueryData<NotesResponse>(noteQueryKeys.list(), response)
+      notifyTrashed('note', note.id, 'Заметка')
     },
   })
 
@@ -211,7 +214,7 @@ function NewNoteForm({ goals }: { goals: ReadonlyArray<{ id: string; title: stri
         <Typography as="h2" variant="h6">
           Новая заметка
         </Typography>
-        <CardDescription>Заголовок необязателен — записывайте как пишется.</CardDescription>
+        <CardDescription>Заголовок необязателен — записывай как пишется.</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         <Input

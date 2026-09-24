@@ -16,6 +16,7 @@ import { z } from 'zod'
 import { validationErrorHook } from '../../../http/errors'
 import { ingressErrorResponses } from '../../../http/openapi'
 import type { AuthHttpEnv } from '../../auth'
+import type { SettingsReader } from '../../settings'
 import type { SharingRepository } from '../application/ports'
 import { executeSharing } from './errors'
 
@@ -104,7 +105,9 @@ const readPublicRoute = createRoute({
   path: '/public/{token}',
   request: {
     params: shareTokenParamsSchema,
-    query: z.object({ today: dayDateSchema }).strict(),
+    // Older pages still send the visitor's `today`; it is ignored for one release, because the
+    // owner's streaks are counted by the owner's own day, not by the visitor's clock.
+    query: z.object({ today: dayDateSchema.optional() }).strict(),
   },
   responses: {
     ...publicErrors,
@@ -128,16 +131,25 @@ const createCommentRoute = createRoute({
 type CreateSharingRoutesOptions = {
   repository: SharingRepository
   requireAuth: MiddlewareHandler<AuthHttpEnv>
+  settings: SettingsReader
 }
 
-export function createSharingRoutes({ repository, requireAuth }: CreateSharingRoutesOptions) {
+export function createSharingRoutes({
+  repository,
+  requireAuth,
+  settings,
+}: CreateSharingRoutesOptions) {
   const routes = new OpenAPIHono<AuthHttpEnv>({ defaultHook: validationErrorHook })
 
   // The public routes are registered first and are not behind the guard; everything else is.
   routes.openapi(readPublicRoute, async (c) => {
-    const profile = await executeSharing(() =>
-      repository.readPublicProfile(c.req.valid('param').token, c.req.valid('query').today),
-    )
+    const { token } = c.req.valid('param')
+    const profile = await executeSharing(async () => {
+      const ownerId = await repository.ownerOf(token)
+      // An unknown token is answered by readPublicProfile as not found; the day is irrelevant.
+      const today = ownerId ? await settings.today(ownerId) : '1970-01-01'
+      return repository.readPublicProfile(token, today)
+    })
     return c.json(profile, 200)
   })
 

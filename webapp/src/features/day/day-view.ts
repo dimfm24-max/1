@@ -1,4 +1,10 @@
-import type { TaskDto } from '@dilife/contracts'
+import type { ScheduleRuleDto, TaskDto } from '@dilife/contracts'
+
+import { describeWeekdays, formatDate, pluralForm } from '@/platform/intl'
+
+// The formatters live in platform/intl; they are re-exported here because the day screens and
+// their tests already import them from the day feature.
+export { formatDayHeading, formatDuration, formatMinuteOfDay } from '@/platform/intl'
 
 /**
  * Reading a day for the screen. The rules are here rather than in the components so the plan,
@@ -28,38 +34,9 @@ export function countDay(tasks: ReadonlyArray<TaskDto>): DayCounts {
   }
 }
 
-/** Pairs of tasks whose times cross. Overlapping is allowed, so this marks rather than blocks. */
-export function overlappingTaskIds(tasks: ReadonlyArray<TaskDto>): Set<string> {
-  const timed = tasks
-    .filter((task): task is TaskDto & { startMinute: number } => task.startMinute !== null)
-    .sort((left, right) => left.startMinute - right.startMinute)
-
-  const overlapping = new Set<string>()
-  for (let index = 0; index < timed.length; index += 1) {
-    const current = timed[index]!
-    const currentEnd = current.startMinute + current.durationMinutes
-    for (let next = index + 1; next < timed.length; next += 1) {
-      const candidate = timed[next]!
-      if (candidate.startMinute >= currentEnd) break
-      overlapping.add(current.id)
-      overlapping.add(candidate.id)
-    }
-  }
-  return overlapping
-}
-
-/** 510 reads as 08:30. Minutes past midnight is how the day is stored; this is how it is said. */
-export function formatMinuteOfDay(minute: number): string {
-  const hours = Math.floor(minute / 60)
-  const minutes = minute % 60
-  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`
-}
-
-export function formatDuration(minutes: number): string {
-  if (minutes < 60) return `${minutes} мин`
-  const hours = Math.floor(minutes / 60)
-  const rest = minutes % 60
-  return rest === 0 ? `${hours} ч` : `${hours} ч ${rest} мин`
+/** The word that agrees with a count of tasks: 1 задача, 2 задачи, 5 задач. */
+export function taskWord(count: number): string {
+  return pluralForm(count, ['задача', 'задачи', 'задач'])
 }
 
 /** `YYYY-MM-DD` for a date in the viewer's own zone, which is the day they call today. */
@@ -76,43 +53,23 @@ export function shiftDay(date: string, days: number): string {
   return shifted.toISOString().slice(0, 10)
 }
 
-const weekdays = [
-  'воскресенье',
-  'понедельник',
-  'вторник',
-  'среда',
-  'четверг',
-  'пятница',
-  'суббота',
-]
-
-const months = [
-  'января',
-  'февраля',
-  'марта',
-  'апреля',
-  'мая',
-  'июня',
-  'июля',
-  'августа',
-  'сентября',
-  'октября',
-  'ноября',
-  'декабря',
-]
-
-/** "22 сентября, вторник" — the heading of the day, read the way it is spoken. */
-export function formatDayHeading(date: string): string {
-  const parsed = new Date(`${date}T00:00:00.000Z`)
-  const day = parsed.getUTCDate()
-  const month = months[parsed.getUTCMonth()] ?? ''
-  const weekday = weekdays[parsed.getUTCDay()] ?? ''
-  return `${day} ${month}, ${weekday}`
-}
-
 export function relativeDayLabel(date: string, today: string): string | null {
   if (date === today) return 'сегодня'
   if (date === shiftDay(today, 1)) return 'завтра'
   if (date === shiftDay(today, -1)) return 'вчера'
   return null
+}
+
+/** «по пн, ср, пт» or «12.10, 19.10» for a repeat rule. */
+export function describeRepeat(rule: ScheduleRuleDto): string {
+  switch (rule.kind) {
+    case 'daily':
+      return 'каждый день'
+    case 'weekdays':
+      return `по дням: ${describeWeekdays(rule.weekdays)}`
+    case 'monthdays':
+      return `по числам: ${rule.monthDays.join(', ')}`
+    case 'dates':
+      return `в даты: ${rule.dates.map(formatDate).join(', ')}`
+  }
 }

@@ -44,6 +44,20 @@ const updateProfileRoute = createRoute({
   },
 })
 
+const completeOnboardingRoute = createRoute({
+  method: 'post',
+  path: '/me/onboarding',
+  security: bearerSecurity,
+  responses: {
+    ...ingressErrorResponses,
+    200: {
+      content: { 'application/json': { schema: updateProfileResponseSchema } },
+      description: 'The user with the first-run wizard marked done',
+    },
+    401: { content: errorContent, description: 'Authentication required' },
+  },
+})
+
 type CreateUsersRoutesOptions = {
   requireAuth: MiddlewareHandler<AuthHttpEnv>
   service: UsersService
@@ -57,6 +71,11 @@ export function createUsersRoutes({ requireAuth, service }: CreateUsersRoutesOpt
     const result = await executeUsers(() =>
       service.updateProfile(c.var.user, c.req.valid('json')),
     )
+    return c.json(result, 200)
+  })
+
+  userRoutes.openapi(completeOnboardingRoute, async (c) => {
+    const result = await executeUsers(() => service.completeOnboarding(c.var.user))
     return c.json(result, 200)
   })
 

@@ -85,6 +85,7 @@ function renderProfilePanel(displayName: string | null) {
     email: 'user@example.com',
     displayName,
     createdAt: '2026-05-11T00:00:00.000Z',
+    emailVerified: true,
   }
   const auth = { transport: {} } as unknown as AuthContextValue
 

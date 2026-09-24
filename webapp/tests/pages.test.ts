@@ -1,12 +1,12 @@
 import { expect, test } from 'bun:test'
 
-import { clearPasswordResetTokenHash } from '../src/features/auth/password-reset-location'
+import { clearLinkTokenHash } from '../src/features/auth/link-token-location'
 
 test('password reset token cleanup preserves router-managed history state', () => {
   const routerState = { __TSR_index: 4, key: 'reset-entry' }
   const replacements: Array<{ state: unknown; title: string; url?: string | URL | null }> = []
 
-  clearPasswordResetTokenHash(
+  clearLinkTokenHash(
     {
       hash: '#token=secret',
       pathname: '/reset-password',

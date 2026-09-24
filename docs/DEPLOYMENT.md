@@ -22,7 +22,7 @@ Production-инфраструктура описана в [infra/README.md](../i
 
 Serverless Containers Yandex масштабируются на несколько процессов. `concurrency` задаёт запросы на экземпляр, а не предел экземпляров. Поэтому Yandex использует `RATE_LIMIT_STORE=database`. Auth/admin-лимиты из `backend/src/http/security.ts` считают в `rate_limit_buckets` через `backend/src/rate-limit`: один upsert на политику, клиента и фиксированное окно.
 
-Так `AUTH_RATE_LIMIT_MAX` и `ADMIN_USERS_READ_RATE_LIMIT_MAX` остаются общими. DigitalOcean с одним процессом использует `memory` без запросов к БД. На своём сервере с несколькими API-процессами также включи `database`. Отработанные окна удаляет auth-очистка в `maintenance:process`. Причина выбора PostgreSQL вместо Redis — в `docs/ARCHITECTURE.md`.
+Так `AUTH_RATE_LIMIT_MAX` (вход), `API_RATE_LIMIT_MAX` (данные приложения после входа, по умолчанию 600 в минуту) и `ADMIN_USERS_READ_RATE_LIMIT_MAX` остаются общими. DigitalOcean с одним процессом использует `memory` без запросов к БД. На своём сервере с несколькими API-процессами также включи `database`. Отработанные окна удаляет auth-очистка в `maintenance:process`. Причина выбора PostgreSQL вместо Redis — в `docs/ARCHITECTURE.md`.
 
 Облачным путям Ansible не нужен: отдельных хостов для настройки нет. Terraform управляет ресурсами; скрипт релиза — образом, порядком миграции, статикой и проверкой. Ansible может пригодиться на своём сервере.
 

@@ -26,6 +26,7 @@ Before work in an area, read its guide:
 | Website data, catalog, cart, checkout, orders, access, and payments | `docs/WEB_SURFACES.md`. Preserve behavior ownership and a single browser checkout. |
 | Local PostgreSQL | `docs/LOCAL_DATABASE.md` and `docker-compose.yml`. Use Docker Compose unless the user chooses another option. |
 | Background or scheduled work | `docs/BACKGROUND_JOBS.md` |
+| Web interface look, themes, and screen layout | `docs/DESIGN.md`. Use theme tokens and `Typography` variants. Do not hard-code colors or text styles. |
 | Test setup and new scenarios | `docs/TESTING.md`. For mobile work, also read the mobile README on the `mobile` branch. |
 | Deployment, cloud services, and storage | `docs/DEPLOYMENT.md`, `infra/README.md`, and the guide for the selected provider or storage system. |
 

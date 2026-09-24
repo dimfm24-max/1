@@ -2,7 +2,21 @@
 // syntax (`$param` segments). This is the return-path allow-list: a protected route survives the
 // login round-trip whether or not the sidebar links to it. `tests/navigation.test.ts` fails when
 // this table and the router drift apart.
-export const workspaceRoutes = ['/app', '/app/day', '/app/goals', '/app/habits', '/app/horizon', '/app/statistics', '/app/notes', '/app/calendar', '/app/share', '/app/profile', '/app/settings'] as const
+export const workspaceRoutes = [
+  '/app',
+  '/app/day',
+  '/app/goals',
+  '/app/habits',
+  '/app/horizon',
+  '/app/statistics',
+  '/app/notes',
+  '/app/calendar',
+  '/app/settings',
+  '/app/settings/$section',
+  // Old addresses kept so bookmarks still open: they redirect into the settings sections.
+  '/app/share',
+  '/app/profile',
+] as const
 
 type WorkspaceRouteTable = ReadonlyArray<string>
 
@@ -12,19 +26,25 @@ type StaticPath<T extends string> = T extends `${string}$${string}` ? never : T
 export type WorkspaceRoutePath = StaticPath<(typeof workspaceRoutes)[number]>
 
 // The sidebar menu is a presentation subset of the workspace routes; the type keeps it one.
+// The seven sections of §6 in PRD.md, plus «План дня» and «Горизонт жизни», which the owner
+// kept as menu items of their own (23.09.2026). Profile and sharing live inside «Настройки».
+// `main` holds the sections a day is lived in; `service` sits apart at the foot of the menu.
 const navigationItems = [
-  { label: 'Home', to: '/app' },
-  { label: 'Day', to: '/app/day' },
-  { label: 'Goals', to: '/app/goals' },
-  { label: 'Habits', to: '/app/habits' },
-  { label: 'Horizon', to: '/app/horizon' },
-  { label: 'Statistics', to: '/app/statistics' },
-  { label: 'Notes', to: '/app/notes' },
-  { label: 'Calendar', to: '/app/calendar' },
-  { label: 'Share', to: '/app/share' },
-  { label: 'Profile', to: '/app/profile' },
-  { label: 'Settings', to: '/app/settings' },
-] as const satisfies ReadonlyArray<{ label: string; to: WorkspaceRoutePath }>
+  { id: 'today', label: 'Сегодня', to: '/app', group: 'main' },
+  { id: 'day', label: 'План дня', to: '/app/day', group: 'main' },
+  { id: 'goals', label: 'Цели', to: '/app/goals', group: 'main' },
+  { id: 'habits', label: 'Привычки', to: '/app/habits', group: 'main' },
+  { id: 'calendar', label: 'Календарь', to: '/app/calendar', group: 'main' },
+  { id: 'horizon', label: 'Горизонт жизни', to: '/app/horizon', group: 'main' },
+  { id: 'statistics', label: 'Статистика', to: '/app/statistics', group: 'main' },
+  { id: 'notes', label: 'Заметки', to: '/app/notes', group: 'main' },
+  { id: 'settings', label: 'Настройки', to: '/app/settings', group: 'service' },
+] as const satisfies ReadonlyArray<{
+  id: string
+  label: string
+  to: WorkspaceRoutePath
+  group: 'main' | 'service'
+}>
 
 export const homePath = '/app' as const
 

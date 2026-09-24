@@ -15,6 +15,7 @@ export type AccessTokenPayload = {
 
 export type AuthRepository = {
   findUserByEmail(email: string): Promise<AuthUserRecord | null>
+  findUserById(id: string): Promise<AuthUserRecord | null>
   createPasswordUserWithSession(input: {
     user: RegisterPayload & { passwordHash: string }
     session: {
@@ -23,6 +24,11 @@ export type AuthRepository = {
       expiresAt: Date
       metadata: SessionMetadata
     }
+    /**
+     * Called inside the transaction that creates the account, so an account never exists without
+     * its confirmation letter queued. Absent when there is nothing to queue.
+     */
+    queueVerification?: (userId: string, enqueue: (task: QueuedTask) => Promise<void>) => Promise<void>
   }): Promise<{ user: AuthUserRecord; session: { id: string } }>
   findUserByProviderSubject(
     provider: SocialAuthProvider,
@@ -89,6 +95,17 @@ export type AuthRepository = {
   }): Promise<boolean>
   invalidatePasswordResetToken(input: { tokenHash: string; now: Date }): Promise<void>
   hasActivePasswordResetToken(input: { tokenHash: string; now: Date }): Promise<boolean>
+  /** Same cooldown rule as password reset tokens: false when one was minted too recently. */
+  createEmailVerificationToken(input: {
+    userId: string
+    tokenHash: string
+    expiresAt: Date
+    now: Date
+    createdAfter: Date
+  }): Promise<boolean>
+  invalidateEmailVerificationToken(input: { tokenHash: string; now: Date }): Promise<void>
+  /** Marks the token's owner verified and spends every link of theirs. False for a dead token. */
+  completeEmailVerification(input: { tokenHash: string; now: Date }): Promise<boolean>
   completePasswordReset(input: {
     tokenHash: string
     passwordHash: string
@@ -124,6 +141,10 @@ export type PasswordResetNotifier = {
     signal: AbortSignal,
   ): Promise<void>
   sendPasswordChanged(input: { email: string }, signal: AbortSignal): Promise<void>
+  sendEmailVerification(
+    input: { email: string; token: string },
+    signal: AbortSignal,
+  ): Promise<void>
   /**
    * True when a send failed in a way no retry can fix, so compensation has to happen now.
    *
@@ -156,6 +177,34 @@ export type PasswordResetTaskQueue = {
  * pins the bucket.
  */
 export const passwordResetCooldownSeconds = 60
+
+/**
+ * Guards the queue of confirmation letters. Registration needs no session, so anyone can fill the
+ * queue from many addresses; past the ceiling nothing is queued and the person can ask again
+ * from the banner. See docs/BACKGROUND_JOBS.md, "What an anonymous client can enqueue".
+ */
+export type EmailVerificationTaskQueue = {
+  hasRoom(now: Date): Promise<boolean>
+  enqueue(task: QueuedTask): Promise<void>
+}
+
+export const emailVerificationTaskType = 'auth:email-verification'
+
+/** A confirmation link lives a day: the letter is often opened later, on another device. */
+export const emailVerificationTokenTtlHours = 24
+
+/**
+ * One letter per account per cooldown. The dedupe bucket and the token cooldown are the same
+ * window, as with password resets, so a collapsed burst and a refused token mean the same thing.
+ */
+export function emailVerificationTask(userId: string, now: Date): QueuedTask {
+  const bucket = Math.floor(now.getTime() / (passwordResetCooldownSeconds * 1000))
+  return {
+    dedupeKey: `${userId}:${bucket}`,
+    payload: { userId },
+    type: emailVerificationTaskType,
+  }
+}
 
 /** What the application asks for; the infrastructure decides which client writes it. */
 export type QueuedTask = {

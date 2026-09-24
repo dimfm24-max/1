@@ -1,20 +1,45 @@
 /**
- * How far a goal has moved, as a share between 0 and 1.
+ * How far a goal has moved, as a share between 0 and 1. The one formula every screen shows:
+ * the server sends the share, clients only draw it.
  *
- * Two goals can carry the same number and mean different things: one counts kilograms the person
- * records, the other counts steps the app can see. Both answer the same question on the day
- * screen, so the arithmetic lives here rather than in either reader.
+ * A manual goal may carry a start ("сколько сейчас" when it was set). The bar then runs from the
+ * start to the target in either direction: "60 килограммов" from 80 reads 0 % at 80, 50 % at 70
+ * and 100 % at 60. Without a start the count runs up from zero.
  */
 export function goalCompletionRatio(input: {
   currentValue: number
   targetValue: number
+  initialValue?: number | null
 }): number {
-  // A target of zero is meaningless as a denominator, and a person who typed it is not asking
-  // for an error - they are saying "no number to reach". Report nothing achieved rather than
-  // dividing, which would surface as Infinity or NaN in the interface.
-  if (!(input.targetValue > 0)) return 0
-  const ratio = input.currentValue / input.targetValue
-  if (!Number.isFinite(ratio) || ratio < 0) return 0
+  const start = input.initialValue ?? null
+  if (start === null) {
+    // A target of zero is meaningless as a denominator. Report nothing achieved rather than
+    // dividing, which would surface as Infinity or NaN in the interface.
+    if (!(input.targetValue > 0)) return 0
+    return clampRatio(input.currentValue / input.targetValue)
+  }
+  const span = input.targetValue - start
+  if (span === 0) return 0
+  return clampRatio((input.currentValue - start) / span)
+}
+
+/** The share for any goal: counted steps for an automatic one, the formula above otherwise. */
+export function goalRatio(goal: {
+  progressMode: 'manual' | 'automatic'
+  currentValue: number
+  targetValue: number
+  initialValue: number | null
+}): number {
+  return goalCompletionRatio({
+    currentValue: goal.currentValue,
+    targetValue: goal.targetValue,
+    initialValue: goal.progressMode === 'manual' ? goal.initialValue : null,
+  })
+}
+
+function clampRatio(ratio: number) {
+  // `<= 0` also turns -0 (80 - 80 over a falling span) into a plain 0.
+  if (!Number.isFinite(ratio) || ratio <= 0) return 0
   // Overshooting is normal - 45 km against a 42 km target - but the bar stops at full.
   return Math.min(ratio, 1)
 }
@@ -37,19 +62,14 @@ export function automaticProgressValue(input: {
 }
 
 /** Three decimals, matching the column, so a stored value reads back as it was computed. */
-function round3(value: number) {
+export function round3(value: number) {
   return Math.round(value * 1000) / 1000
 }
 
-export function daysUntil(deadline: Date, now: Date): number {
+/** Whole days from `today` to `deadline`, both `YYYY-MM-DD`. Negative once the deadline passed. */
+export function daysUntil(deadline: string, today: string): number {
   const dayMs = 24 * 60 * 60 * 1000
-  // Whole days from the start of today, so "tomorrow" reads as 1 all day rather than sliding
-  // from 1 to 0 as the clock passes the deadline's time of day.
-  const startOfToday = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
-  const startOfDeadline = Date.UTC(
-    deadline.getUTCFullYear(),
-    deadline.getUTCMonth(),
-    deadline.getUTCDate(),
+  return Math.round(
+    (Date.parse(`${deadline}T00:00:00.000Z`) - Date.parse(`${today}T00:00:00.000Z`)) / dayMs,
   )
-  return Math.round((startOfDeadline - startOfToday) / dayMs)
 }

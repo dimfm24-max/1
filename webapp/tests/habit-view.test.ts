@@ -1,7 +1,13 @@
 import { expect, test } from 'bun:test'
 import type { HabitDto } from '@dilife/contracts'
 
-import { describeSchedule, formatStreak, habitStrip, isDueOn } from '../src/features/habits/habit-view'
+import {
+  describeSchedule,
+  formatStreak,
+  habitStrip,
+  isDueOn,
+  topStreaks,
+} from '../src/features/habits/habit-view'
 
 function habit(overrides: Partial<HabitDto> = {}): HabitDto {
   return {
@@ -69,4 +75,22 @@ test('describes the schedule in the words the person chose', () => {
   expect(describeSchedule(habit())).toBe('каждый день')
   expect(describeSchedule(habit({ schedule: 'weekdays', weekdays: [1, 3] }))).toBe('пн, ср')
   expect(describeSchedule(habit({ schedule: 'interval', intervalDays: 3 }))).toBe('каждые 3 дн.')
+})
+
+test("top streaks show active habits, longest run first, ties in the person's order", () => {
+  const habits = [
+    habit({ id: 'reading', position: 0, currentStreak: 5 }),
+    habit({ id: 'sugar', position: 1, currentStreak: 21 }),
+    habit({ id: 'archived', position: 2, currentStreak: 40, archivedAt: '2026-09-10T00:00:00.000Z' }),
+    habit({ id: 'water', position: 3, currentStreak: 5 }),
+    habit({ id: 'stretch', position: 4, currentStreak: 0 }),
+  ]
+
+  expect(topStreaks(habits, 3).map((item) => item.id)).toEqual(['sugar', 'reading', 'water'])
+  expect(topStreaks(habits, 10).map((item) => item.id)).toEqual([
+    'sugar',
+    'reading',
+    'water',
+    'stretch',
+  ])
 })

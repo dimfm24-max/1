@@ -4,8 +4,8 @@ import { Typography } from '@/components/typography'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card'
-import { toDayDate } from '@/features/day'
 import { useGoalTreeQuery } from '@/features/goals'
+import { useToday } from '@/features/settings'
 import {
   dayOfMonth,
   formatMonth,
@@ -20,7 +20,7 @@ import {
  * there, which is what a person comes here to see - what is due, and how far away it is.
  */
 export function CalendarPage() {
-  const [today] = useState(() => toDayDate(new Date()))
+  const { today } = useToday()
   const [month, setMonth] = useState(() => monthOf(today))
   const goals = useGoalTreeQuery()
 

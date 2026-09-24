@@ -74,7 +74,7 @@ export function createPrismaHabitsRepository(db: DbClient): HabitsRepository {
 
   async function list(userId: string, today: string) {
     const habits = await db.habit.findMany({
-      where: { userId },
+      where: { userId, deletedAt: null },
       orderBy: [{ archivedAt: 'asc' }, { position: 'asc' }],
       select: habitSelect,
     })
@@ -83,7 +83,7 @@ export function createPrismaHabitsRepository(db: DbClient): HabitsRepository {
 
   async function readHabit(userId: string, habitId: string, today: string) {
     const habit = await db.habit.findFirst({
-      where: { id: habitId, userId },
+      where: { id: habitId, userId, deletedAt: null },
       select: habitSelect,
     })
     if (!habit) throw new HabitsFailure('not_found', 'Habit not found')
@@ -117,7 +117,7 @@ export function createPrismaHabitsRepository(db: DbClient): HabitsRepository {
 
     async update(userId, habitId, input: UpdateHabitRequest, today, now) {
       const existing = await db.habit.findFirst({
-        where: { id: habitId, userId },
+        where: { id: habitId, userId, deletedAt: null },
         select: { id: true, archivedAt: true },
       })
       if (!existing) throw new HabitsFailure('not_found', 'Habit not found')
@@ -142,7 +142,7 @@ export function createPrismaHabitsRepository(db: DbClient): HabitsRepository {
 
     async mark(userId, habitId, input: MarkHabitRequest, today) {
       const habit = await db.habit.findFirst({
-        where: { id: habitId, userId },
+        where: { id: habitId, userId, deletedAt: null },
         select: { id: true },
       })
       if (!habit) throw new HabitsFailure('not_found', 'Habit not found')
@@ -161,8 +161,12 @@ export function createPrismaHabitsRepository(db: DbClient): HabitsRepository {
       return readHabit(userId, habitId, today)
     },
 
-    async remove(userId, habitId, today) {
-      const deleted = await db.habit.deleteMany({ where: { id: habitId, userId } })
+    async remove(userId, habitId, today, now) {
+      // To the trash with its marks kept; a restored habit counts its streak from them again.
+      const deleted = await db.habit.updateMany({
+        where: { id: habitId, userId, deletedAt: null },
+        data: { deletedAt: now },
+      })
       if (deleted.count === 0) throw new HabitsFailure('not_found', 'Habit not found')
       return list(userId, today)
     },

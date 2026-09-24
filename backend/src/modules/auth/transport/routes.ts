@@ -4,6 +4,9 @@ import {
   cookieLogoutRequestSchema,
   cookieRefreshRequestSchema,
   cookieRefreshResponseSchema,
+  emailVerificationConfirmRequestSchema,
+  emailVerificationConfirmResponseSchema,
+  emailVerificationRequestResponseSchema,
   loginRequestSchema,
   meResponseSchema,
   passwordResetConfirmRequestSchema,
@@ -345,6 +348,45 @@ const passwordResetConfirmRoute = createRoute({
   },
 })
 
+const emailVerificationRequestRoute = createRoute({
+  method: 'post',
+  path: '/email-verification/request',
+  security: bearerSecurity,
+  responses: {
+    ...ingressErrorResponses,
+    202: {
+      content: { 'application/json': { schema: emailVerificationRequestResponseSchema } },
+      description: 'A confirmation letter is queued unless one was sent a moment ago',
+    },
+    401: { content: errorResponseContent, description: 'Invalid access token' },
+  },
+})
+
+const emailVerificationConfirmRoute = createRoute({
+  method: 'post',
+  path: '/email-verification/confirm',
+  request: {
+    body: {
+      content: {
+        'application/json': {
+          schema: emailVerificationConfirmRequestSchema,
+        },
+      },
+    },
+  },
+  responses: {
+    ...ingressErrorResponses,
+    200: {
+      content: { 'application/json': { schema: emailVerificationConfirmResponseSchema } },
+      description: 'The address is confirmed',
+    },
+    400: {
+      content: errorResponseContent,
+      description: 'Invalid payload, or the link is unknown, spent or expired',
+    },
+  },
+})
+
 type CreateAuthRoutesOptions = {
   env: AppEnv
   requireAuth: MiddlewareHandler<AuthHttpEnv>
@@ -415,6 +457,11 @@ export function createAuthRoutes({ env, requireAuth, service }: CreateAuthRoutes
   protectedRoutes.openapi(meRoute, async (c) => {
     return c.json({ user: userDtoFromPrincipal(c.var.user) }, 200)
   })
+  protectedRoutes.use('/email-verification/request', requireAuth)
+  protectedRoutes.openapi(emailVerificationRequestRoute, async (c) => {
+    const result = await executeAuth(() => service.requestEmailVerification(c.var.user))
+    return c.json(result, 202)
+  })
   routes.route('/', protectedRoutes)
 
   routes.openapi(cookieLogoutRoute, async (c) => {
@@ -439,6 +486,14 @@ export function createAuthRoutes({ env, requireAuth, service }: CreateAuthRoutes
       service.requestPasswordReset(c.req.valid('json')),
     )
     return c.json(result, 202)
+  })
+
+  // No session needed: the letter is often opened on a phone where the person is not signed in.
+  routes.openapi(emailVerificationConfirmRoute, async (c) => {
+    const result = await executeAuth(() =>
+      service.confirmEmailVerification(c.req.valid('json')),
+    )
+    return c.json(result, 200)
   })
 
   routes.openapi(passwordResetConfirmRoute, async (c) => {

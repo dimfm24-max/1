@@ -36,6 +36,9 @@ model Habit {
   color    String?
   position Int
 
+  /// In the trash since this moment, with its marks kept; purged 30 days later (task 11).
+  deletedAt DateTime? @map("deleted_at")
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -43,6 +46,7 @@ model Habit {
   marks HabitMark[]
 
   @@index([userId, position], map: "habits_user_id_position_idx")
+  @@index([deletedAt], map: "habits_deleted_at_idx")
   @@map("habits")
 }
 

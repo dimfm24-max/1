@@ -176,6 +176,7 @@ describe('runBackgroundJob', () => {
   test('deletes expired and revoked auth sessions after the retention window', async () => {
     const sessionCalls: unknown[] = []
     const resetTokenCalls: unknown[] = []
+    const verificationTokenCalls: unknown[] = []
     let pushTokenMaintenanceQueries = 0
     const rateLimitCalls: unknown[] = []
     const cleanupRuntime = {
@@ -189,6 +190,12 @@ describe('runBackgroundJob', () => {
           deleteMany: async (input: unknown) => {
             sessionCalls.push(input)
             return { count: 2 }
+          },
+        },
+        emailVerificationToken: {
+          deleteMany: async (input: unknown) => {
+            verificationTokenCalls.push(input)
+            return { count: 4 }
           },
         },
         passwordResetToken: {
@@ -223,6 +230,9 @@ describe('runBackgroundJob', () => {
     expect(resetTokenCalls).toEqual([{
       where: { expiresAt: { lt: now } },
     }])
+    expect(verificationTokenCalls).toEqual([{
+      where: { expiresAt: { lt: now } },
+    }])
     // A rate-limit window nobody can land in any more is dead weight; the job that already sweeps
     // auth's other expiring rows sweeps these too, so shared counters need no runner of their own.
     expect(rateLimitCalls).toEqual([{
@@ -231,6 +241,7 @@ describe('runBackgroundJob', () => {
   })
 
   test('maintenance runs session cleanup, push-token upkeep, and terminal redaction in one task', async () => {
+    const trashCutoffs: Date[] = []
     const calls = {
       cleanup: 0,
       passwordResetCleanup: 0,
@@ -256,6 +267,7 @@ describe('runBackgroundJob', () => {
             return { count: 2 }
           },
         },
+        emailVerificationToken: { deleteMany: async () => ({ count: 0 }) },
         passwordResetToken: {
           deleteMany: async () => {
             calls.passwordResetCleanup += 1
@@ -280,6 +292,22 @@ describe('runBackgroundJob', () => {
             return []
           },
         },
+        // Repeats and scheduled templates: none to fill in this account.
+        taskSeries: { findMany: async () => [] },
+        dayTemplate: { findMany: async () => [] },
+        // The trash sweep looks for expired rows in each of its six tables.
+        ...Object.fromEntries(
+          ['goal', 'goalStage', 'goalStep', 'task', 'note', 'habit'].map((table) => [
+            table,
+            {
+              findMany: async (args: { where: { deletedAt: { lt: Date } } }) => {
+                trashCutoffs.push(args.where.deletedAt.lt)
+                return []
+              },
+              deleteMany: async () => ({ count: 0 }),
+            },
+          ]),
+        ),
       },
     } as unknown as BackendRuntime
 
@@ -301,7 +329,13 @@ describe('runBackgroundJob', () => {
         'Job maintenance:process completed.',
         expect.objectContaining({
           terminalNotificationOutboxesRedacted: 0,
+          trashItemsPurged: 0,
         }),
+      )
+      // Thirty days back from the run, for every kind of thing in the trash.
+      expect(trashCutoffs).toHaveLength(6)
+      expect(new Set(trashCutoffs.map((cutoff) => cutoff.toISOString()))).toEqual(
+        new Set(['2026-06-17T10:00:00.000Z']),
       )
     } finally {
       log.mockRestore()

@@ -125,6 +125,7 @@ The guides contain details and official sources:
 | PostgreSQL, test databases, and resets | [LOCAL_DATABASE.md](docs/LOCAL_DATABASE.md) |
 | Email and files | [EMAIL.md](docs/EMAIL.md), [STORAGE.md](docs/STORAGE.md) |
 | Apple/Google sign-in | [SOCIAL_AUTH.md](docs/SOCIAL_AUTH.md) |
+| Web app visual style, themes, colors, type, and UI patterns | [DESIGN.md](docs/DESIGN.md) |
 
 ## License
 

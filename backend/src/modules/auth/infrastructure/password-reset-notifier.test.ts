@@ -2,7 +2,11 @@ import { describe, expect, test } from 'bun:test'
 
 import { EmailDeliveryError, type EmailDelivery, type EmailMessage } from '../../../email'
 import { TerminalTaskError } from '../../../outbox'
-import { createPasswordResetNotifier } from './password-reset-notifier'
+import {
+  createPasswordResetNotifier,
+  passwordChangedSubject,
+  passwordResetSubject,
+} from './password-reset-notifier'
 
 const signal = new AbortController().signal
 
@@ -127,8 +131,8 @@ describe('createPasswordResetNotifier', () => {
     await notifier.sendPasswordChanged({ email: 'user@example.com' }, signal)
 
     expect(sent.map((message) => ({ to: message.to, subject: message.subject }))).toEqual([
-      { to: 'user@example.com', subject: 'Reset your password' },
-      { to: 'user@example.com', subject: 'Your password was changed' },
+      { to: 'user@example.com', subject: passwordResetSubject },
+      { to: 'user@example.com', subject: passwordChangedSubject },
     ])
   })
 })

@@ -1,50 +1,27 @@
 import type { UserDto } from '@dilife/contracts'
+import type { ReactNode } from 'react'
 
-import { PageContainer, PageHeader } from '@/components/PageLayout'
 import { AvatarPanel } from '@/features/avatar'
-import { AppearancePanel } from '@/features/settings'
-import { AccountSummary } from './AccountSummary'
 import { ProfilePanel } from './ProfilePanel'
 import { SessionPanel } from './SessionPanel'
 
-export function UserHome({ user }: { user: UserDto }) {
+/** «Настройки → Профиль»: the photo, the name and the address, and signing out of this device. */
+export function ProfileSettings({
+  children,
+  onLogout,
+  user,
+}: {
+  /** Panels other features own, such as the time zone, placed after the name. */
+  children?: ReactNode
+  onLogout: () => Promise<void>
+  user: UserDto
+}) {
   return (
-    <PageContainer>
-      <PageHeader
-        description="Review your account status and continue managing your workspace."
-        title={`Welcome, ${user.displayName ?? user.email}`}
-      />
-      <AccountSummary user={user} />
-    </PageContainer>
-  )
-}
-
-export function UserProfile({ user }: { user: UserDto }) {
-  return (
-    <PageContainer>
-      <div className="grid w-full max-w-2xl gap-6">
-        <PageHeader
-          description="Keep the identity shown across your workspace current."
-          title="Profile"
-        />
-        <AvatarPanel user={user} />
-        <ProfilePanel user={user} />
-      </div>
-    </PageContainer>
-  )
-}
-
-export function UserSettings({ onLogout }: { onLogout: () => Promise<void> }) {
-  return (
-    <PageContainer>
-      <PageHeader
-        description="Choose how the workspace looks and manage your current session."
-        title="Settings"
-      />
-      <div className="grid items-start gap-6 lg:grid-cols-2">
-        <AppearancePanel />
-        <SessionPanel onLogout={onLogout} />
-      </div>
-    </PageContainer>
+    <section className="grid w-full max-w-2xl gap-6 p-4 md:p-6" data-testid="profile-page">
+      <AvatarPanel user={user} />
+      <ProfilePanel user={user} />
+      {children}
+      <SessionPanel onLogout={onLogout} />
+    </section>
   )
 }

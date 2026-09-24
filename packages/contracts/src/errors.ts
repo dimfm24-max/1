@@ -16,6 +16,7 @@ export const apiErrorCodeSchema = z.enum([
   'PAYLOAD_TOO_LARGE',
   'RATE_LIMITED',
   'AUTH_PASSWORD_RESET_INVALID',
+  'AUTH_EMAIL_VERIFICATION_INVALID',
   // Upload failures a client can actually recover from, kept apart from generic CONFLICT so the
   // UI can say what to do: retry the transfer, pick a different file, or start over.
   'UPLOAD_NOT_COMPLETED',
@@ -26,8 +27,12 @@ export const apiErrorCodeSchema = z.enum([
   'LIFE_GOAL_REQUIRED',
   'GOAL_PROGRESS_NOT_MANUAL',
   'GOAL_CLOSED',
+  // A deadline earlier than the person's today, on create, change or reopen.
+  'GOAL_DEADLINE_IN_PAST',
   // The day refuses to re-answer a task that is already done.
   'TASK_ALREADY_RESOLVED',
+  // A goal step is planned by hand; it cannot become a repeating task.
+  'TASK_STEP_CANNOT_REPEAT',
   'INTERNAL_ERROR',
 ])
 

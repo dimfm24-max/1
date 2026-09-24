@@ -18,6 +18,7 @@ const user = {
   email: 'user@example.com',
   displayName: null,
   createdAt: '2026-05-11T00:00:00.000Z',
+  emailVerified: true,
 }
 
 test('auth query helpers keep access token and session-scoped cache in sync', async () => {

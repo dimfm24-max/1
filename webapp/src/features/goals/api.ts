@@ -3,10 +3,13 @@ import {
   createGoalRequestSchema,
   createStageRequestSchema,
   createStepRequestSchema,
+  deleteLifeGoalRequestSchema,
+  goalProgressHistoryResponseSchema,
   goalResponseSchema,
   goalTreeResponseSchema,
   lifeGoalResponseSchema,
   recordGoalProgressRequestSchema,
+  reorderRequestSchema,
   updateGoalRequestSchema,
   updateStageRequestSchema,
   updateStepRequestSchema,
@@ -158,4 +161,37 @@ export function updateStep(
 
 export function deleteStep(transport: AuthenticatedTransport, stepId: string) {
   return transport.request(`/api/goals/steps/${stepId}`, goalResponseSchema, { method: 'DELETE' })
+}
+
+export function deleteLifeGoal(transport: AuthenticatedTransport, goals: 'trash' | 'detach') {
+  return transport.request('/api/goals/life-goal', goalTreeResponseSchema, {
+    method: 'DELETE',
+    body: deleteLifeGoalRequestSchema.parse({ goals }),
+  })
+}
+
+export function fetchGoalProgressHistory(
+  transport: AuthenticatedTransport,
+  goalId: string,
+  options?: { signal?: AbortSignal },
+) {
+  return transport.request(
+    `/api/goals/goals/${goalId}/progress`,
+    goalProgressHistoryResponseSchema,
+    { signal: options?.signal },
+  )
+}
+
+export function reorderStages(transport: AuthenticatedTransport, goalId: string, ids: string[]) {
+  return transport.request(`/api/goals/goals/${goalId}/stage-order`, goalResponseSchema, {
+    method: 'PUT',
+    body: reorderRequestSchema.parse({ ids }),
+  })
+}
+
+export function reorderSteps(transport: AuthenticatedTransport, stageId: string, ids: string[]) {
+  return transport.request(`/api/goals/stages/${stageId}/step-order`, goalResponseSchema, {
+    method: 'PUT',
+    body: reorderRequestSchema.parse({ ids }),
+  })
 }

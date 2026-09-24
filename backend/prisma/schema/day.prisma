@@ -20,34 +20,69 @@ enum TaskOutcome {
   @@map("task_outcome")
 }
 
-/// Per-person preferences the day screen reads on every render. One row per account, created on
-/// first read, so the app never has to answer "what if it is missing".
-model UserSettings {
+/// How a repeating thing picks its days: every day, chosen weekdays, chosen days of the month, or
+/// chosen dates. Shared by repeating tasks (task 18) and templates applied by themselves (task 17).
+enum ScheduleRuleKind {
+  daily
+  weekdays
+  monthdays
+  dates
+
+  @@map("schedule_rule_kind")
+}
+
+/// What the day module remembers about a person once: that the starter categories were offered,
+/// so deleting them all does not bring them back (owner's decision on task 14).
+model DayProfile {
   id     String @id @default(dbgenerated("uuidv7()")) @db.Uuid
   userId String @unique @map("user_id") @db.Uuid
 
-  /// Minutes past midnight the day starts at. A person who works past midnight sets 4:00 and
-  /// their day keeps its shape instead of splitting in two.
-  dayStartMinute Int @default(0) @map("day_start_minute")
+  starterCategoriesAt DateTime? @map("starter_categories_at")
 
-  /// What a new task lasts unless told otherwise.
-  defaultTaskMinutes Int @default(30) @map("default_task_minutes")
+  createdAt DateTime @default(now()) @map("created_at")
 
-  /// How the app speaks: friendly, pushing, respectful, neutral. Stored as text rather than an
-  /// enum because the wording is product copy and will change more often than the schema.
-  tone String @default("friendly")
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade, map: "day_profiles_user_id_fkey")
 
-  /// Date of birth and the age the horizon counts to. Both nullable: the horizon is part of the
-  /// product, but it cannot be shown before the person supplies the two numbers it needs.
-  birthDate      DateTime? @map("birth_date") @db.Date
-  lifeExpectancy Int?      @map("life_expectancy")
+  @@map("day_profiles")
+}
+
+/// A repeating task (task 18). The rule lives here; each day it lands on is an ordinary task made
+/// from it for the next days, so each occurrence is done, moved or burned on its own.
+model TaskSeries {
+  id     String @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  userId String @map("user_id") @db.Uuid
+
+  title           String
+  description     String?
+  startMinute     Int?         @map("start_minute")
+  durationMinutes Int          @map("duration_minutes")
+  priority        TaskPriority @default(normal)
+  categoryId      String?      @map("category_id") @db.Uuid
+  colorOverride   String?      @map("color_override")
+
+  ruleKind  ScheduleRuleKind @map("rule_kind")
+  /// 0-6 with Sunday at 0, as habits count them, for `weekdays`.
+  weekdays  Int[]            @default([])
+  /// 1-31 for `monthdays`; 29-31 fall on the last day of a shorter month.
+  monthDays Int[]            @default([]) @map("month_days")
+  /// The chosen days for `dates`.
+  dates     DateTime[]       @db.Date
+
+  startsOn DateTime  @map("starts_on") @db.Date
+  /// Last day included; null repeats without end.
+  endsOn   DateTime? @map("ends_on") @db.Date
+
+  /// Days never to make again: an occurrence deleted for good, or taken out of the series.
+  excludedDates DateTime[] @default([]) @map("excluded_dates") @db.Date
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade, map: "user_settings_user_id_fkey")
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade, map: "task_series_user_id_fkey")
+  tasks Task[]
 
-  @@map("user_settings")
+  @@index([userId], map: "task_series_user_id_idx")
+  @@map("task_series")
 }
 
 /// Colour and grouping for tasks: work, sport, family. The person's own list, not a fixed one.
@@ -104,16 +139,29 @@ model Task {
 
   position Int
 
+  /// The series this task is an occurrence of, and the day the series put it on. The pair is
+  /// unique, so making occurrences twice never doubles a day, even after the task was moved.
+  seriesId   String?   @map("series_id") @db.Uuid
+  seriesDate DateTime? @map("series_date") @db.Date
+  /// Changed on its own («только эта»): later edits of the series leave it alone.
+  seriesDetached Boolean @default(false) @map("series_detached")
+
+  /// In the trash since this moment; purged 30 days later (task 11). Every reader skips it.
+  deletedAt DateTime? @map("deleted_at")
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   user     User          @relation(fields: [userId], references: [id], onDelete: Cascade, map: "tasks_user_id_fkey")
   category TaskCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull, map: "tasks_category_id_fkey")
   step     GoalStep?     @relation(fields: [stepId], references: [id], onDelete: SetNull, map: "tasks_step_id_fkey")
+  series   TaskSeries?   @relation(fields: [seriesId], references: [id], onDelete: SetNull, map: "tasks_series_id_fkey")
   subtasks TaskSubtask[]
 
   @@index([userId, scheduledOn], map: "tasks_user_id_scheduled_on_idx")
   @@index([stepId], map: "tasks_step_id_idx")
+  @@index([deletedAt], map: "tasks_deleted_at_idx")
+  @@unique([seriesId, seriesDate], map: "tasks_series_id_series_date_key")
   @@map("tasks")
 }
 
@@ -145,11 +193,19 @@ model DayTemplate {
   title    String
   position Int
 
+  /// Applied by itself on matching days (task 17); null means by hand only.
+  ruleKind  ScheduleRuleKind? @map("rule_kind")
+  weekdays  Int[]             @default([])
+  monthDays Int[]             @default([]) @map("month_days")
+  /// From this day on; automatic application never reaches back before the rule was set.
+  ruleFrom  DateTime?         @map("rule_from") @db.Date
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  user  User              @relation(fields: [userId], references: [id], onDelete: Cascade, map: "day_templates_user_id_fkey")
-  items DayTemplateItem[]
+  user         User                     @relation(fields: [userId], references: [id], onDelete: Cascade, map: "day_templates_user_id_fkey")
+  items        DayTemplateItem[]
+  applications DayTemplateApplication[]
 
   @@index([userId, position], map: "day_templates_user_id_position_idx")
   @@map("day_templates")
@@ -175,4 +231,23 @@ model DayTemplateItem {
 
   @@index([templateId, position], map: "day_template_items_template_id_position_idx")
   @@map("day_template_items")
+}
+
+/// A template was applied to a day: by hand or by its rule. Automatic application looks here
+/// first, so a day gets a template once, and tasks deleted from it do not come back (task 17).
+model DayTemplateApplication {
+  id         String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  templateId String   @map("template_id") @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  appliedOn  DateTime @map("applied_on") @db.Date
+  automatic  Boolean  @default(false)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  template DayTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade, map: "day_template_applications_template_id_fkey")
+  user     User        @relation(fields: [userId], references: [id], onDelete: Cascade, map: "day_template_applications_user_id_fkey")
+
+  @@unique([templateId, appliedOn], map: "day_template_applications_template_id_applied_on_key")
+  @@index([userId, appliedOn], map: "day_template_applications_user_id_applied_on_idx")
+  @@map("day_template_applications")
 }

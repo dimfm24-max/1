@@ -6,13 +6,15 @@ import type { AuthenticatedTransport } from '@/platform/api'
 import { createHabit, deleteHabit, fetchHabits, markHabit, updateHabit } from './api'
 
 export const habitQueryKeys = {
+  // Keyed by the person's today so an open tab refetches when a new day starts; the server
+  // works the day out itself and is not told it.
   list: (today: string) => [...sessionQueryKeys.all, 'habits', today] as const,
 }
 
 export function habitsQueryOptions(transport: AuthenticatedTransport, today: string) {
   return queryOptions({
     queryKey: habitQueryKeys.list(today),
-    queryFn: ({ signal }) => fetchHabits(transport, today, { signal }),
+    queryFn: ({ signal }) => fetchHabits(transport, { signal }),
   })
 }
 
@@ -53,14 +55,14 @@ function useHabitMutation<TVariables>(
 
 export function useCreateHabitMutation(today: string) {
   return useHabitMutation<CreateHabitRequest>(today, (transport, input) =>
-    createHabit(transport, today, input),
+    createHabit(transport, input),
   )
 }
 
 export function useUpdateHabitMutation(today: string) {
   return useHabitMutation<{ habitId: string; input: UpdateHabitRequest }>(
     today,
-    (transport, { habitId, input }) => updateHabit(transport, today, habitId, input),
+    (transport, { habitId, input }) => updateHabit(transport, habitId, input),
   )
 }
 
@@ -68,7 +70,7 @@ export function useMarkHabitMutation(today: string) {
   return useHabitMutation<{ habitId: string; markedOn: string; isDone: boolean }>(
     today,
     (transport, { habitId, markedOn, isDone }) =>
-      markHabit(transport, today, habitId, { markedOn, isDone }),
+      markHabit(transport, habitId, { markedOn, isDone }),
   )
 }
 
@@ -77,7 +79,7 @@ export function useDeleteHabitMutation(today: string) {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (habitId: string) => deleteHabit(auth.transport, today, habitId),
+    mutationFn: (habitId: string) => deleteHabit(auth.transport, habitId),
     onSuccess: (response) => {
       queryClient.setQueryData<HabitsResponse>(habitQueryKeys.list(today), response)
     },

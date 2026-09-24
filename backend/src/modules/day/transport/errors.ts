@@ -7,6 +7,9 @@ export function toDayAppError(error: unknown) {
   if (error.kind === 'not_found') {
     return new AppError(404, 'NOT_FOUND', error.message)
   }
+  if (error.kind === 'repeat_with_step') {
+    return new AppError(409, 'TASK_STEP_CANNOT_REPEAT', error.message)
+  }
   return new AppError(409, 'TASK_ALREADY_RESOLVED', error.message)
 }
 

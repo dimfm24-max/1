@@ -3,76 +3,212 @@ import { useId, useState, type FormEvent } from 'react'
 
 import { Typography } from '@/components/typography'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Field, FieldDescription, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
-import { useUpsertLifeGoalMutation } from './queries'
+import { describeApiError } from '@/platform/api'
+import { formatCount } from '@/platform/intl'
+import { useDeleteLifeGoalMutation, useUpsertLifeGoalMutation } from './queries'
 
 /**
- * The top of the tree. It is edited in place rather than through a dialog: a person renames it
- * rarely, and a goal cannot be created until it exists, so the empty state has to invite typing
- * rather than hide behind a button.
+ * The top of the tree: the life goal's name, large, and how many goals are in work under it.
+ * It has no progress of its own (§2). Renamed in place; deleted with a choice about its goals.
  */
-export function LifeGoalPanel({ lifeGoal }: { lifeGoal: LifeGoalDto | null }) {
-  const inputId = useId()
-  const mutation = useUpsertLifeGoalMutation()
-  const savedTitle = lifeGoal?.title ?? ''
-  const [title, setTitle] = useState(savedTitle)
-  // The panel renders from a cache that writes replace, so a rename made elsewhere has to reach
-  // the field. Adjusted during render rather than in an effect, which would render twice; the
-  // saved value is remembered so this only fires when it actually changed, never while typing.
-  const [lastSavedTitle, setLastSavedTitle] = useState(savedTitle)
-  if (savedTitle !== lastSavedTitle && !mutation.isPending) {
-    setLastSavedTitle(savedTitle)
-    setTitle(savedTitle)
-  }
+export function LifeGoalPanel({
+  activeGoals,
+  detachedGoals,
+  lifeGoal,
+}: {
+  activeGoals: number
+  /** Goals waiting without a life goal; a new one takes them back by itself. */
+  detachedGoals: number
+  lifeGoal: LifeGoalDto | null
+}) {
+  const [editing, setEditing] = useState(lifeGoal === null)
+  const [deleting, setDeleting] = useState(false)
 
-  const trimmed = title.trim()
-  const isUnchanged = trimmed === savedTitle
-
-  const submit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    if (trimmed === '' || isUnchanged) return
-    mutation.mutate(trimmed)
+  if (lifeGoal === null || editing) {
+    return (
+      <LifeGoalForm
+        detachedGoals={detachedGoals}
+        lifeGoal={lifeGoal}
+        onDone={() => setEditing(false)}
+      />
+    )
   }
 
   return (
     <Card data-testid="life-goal-panel">
-      <CardHeader>
-        <Typography as="h2" variant="h6">
-          Дело вашей жизни
+      <CardHeader className="gap-2">
+        <Typography tone="muted" variant="eyebrow">
+          Дело жизни
         </Typography>
-        <CardDescription>
+        <Typography as="h1" data-testid="life-goal-title" variant="display">
+          {lifeGoal.title}
+        </Typography>
+        <Typography tone="muted" variant="bodySm">
+          {activeGoals === 0
+            ? 'Целей в работе пока нет'
+            : `В работе ${formatCount(activeGoals, ['цель', 'цели', 'целей'])}`}
+        </Typography>
+      </CardHeader>
+      <CardContent className="flex flex-wrap gap-2">
+        <Button
+          data-testid="life-goal-rename"
+          onClick={() => setEditing(true)}
+          size="sm"
+          type="button"
+          variant="outline"
+        >
+          Переименовать
+        </Button>
+        <Button
+          data-testid="life-goal-delete"
+          onClick={() => setDeleting(true)}
+          size="sm"
+          type="button"
+          variant="ghost"
+        >
+          Удалить дело жизни
+        </Button>
+      </CardContent>
+      {deleting ? (
+        <DeleteLifeGoalDialog activeGoals={activeGoals} onOpenChange={setDeleting} />
+      ) : null}
+    </Card>
+  )
+}
+
+function LifeGoalForm({
+  detachedGoals,
+  lifeGoal,
+  onDone,
+}: {
+  detachedGoals: number
+  lifeGoal: LifeGoalDto | null
+  onDone: () => void
+}) {
+  const inputId = useId()
+  const mutation = useUpsertLifeGoalMutation()
+  const [title, setTitle] = useState(lifeGoal?.title ?? '')
+  const trimmed = title.trim()
+
+  const submit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (trimmed === '') return
+    mutation.mutate(trimmed, { onSuccess: onDone })
+  }
+
+  return (
+    <Card data-testid="life-goal-panel">
+      <CardHeader className="gap-1">
+        <Typography as="h1" variant="h4">
+          Дело жизни
+        </Typography>
+        <Typography tone="muted" variant="bodySm">
           {lifeGoal
-            ? 'Всё, к чему вы идёте, собрано под этим.'
-            : 'Назовите то, ради чего ставите цели. Без этого цель завести нельзя.'}
-        </CardDescription>
+            ? 'Новое название увидят все твои цели.'
+            : detachedGoals > 0
+              ? `Назови новое дело жизни — ${formatCount(detachedGoals, ['цель', 'цели', 'целей'])} без него вернутся под него сами.`
+              : 'Назови то, ради чего ставишь цели. Без этого цель завести нельзя.'}
+        </Typography>
       </CardHeader>
       <CardContent>
         <form className="flex flex-col gap-4 sm:flex-row sm:items-end" onSubmit={submit}>
           <Field className="flex-1">
             <FieldLabel htmlFor={inputId}>Название</FieldLabel>
             <Input
-              id={inputId}
               data-testid="life-goal-input"
+              id={inputId}
               maxLength={200}
               onChange={(event) => setTitle(event.target.value)}
               placeholder="Например: быть здоровым и сильным"
               value={title}
             />
-            <FieldDescription>
-              {lifeGoal ? 'Можно переименовать в любой момент.' : 'Один раз, потом можно менять.'}
-            </FieldDescription>
+            <FieldDescription>Его можно переименовать в любой момент.</FieldDescription>
           </Field>
-          <Button
-            data-testid="life-goal-submit"
-            disabled={trimmed === '' || isUnchanged || mutation.isPending}
-            type="submit"
-          >
-            {lifeGoal ? 'Переименовать' : 'Сохранить'}
-          </Button>
+          <div className="flex gap-2">
+            {lifeGoal ? (
+              <Button onClick={onDone} type="button" variant="ghost">
+                Отмена
+              </Button>
+            ) : null}
+            <Button
+              data-testid="life-goal-submit"
+              disabled={trimmed === '' || trimmed === lifeGoal?.title || mutation.isPending}
+              type="submit"
+            >
+              Сохранить
+            </Button>
+          </div>
         </form>
+        {mutation.isError ? (
+          <Typography tone="destructive" variant="bodySm">
+            {describeApiError(mutation.error, 'Не сохранилось. Попробуй ещё раз.')}
+          </Typography>
+        ) : null}
       </CardContent>
     </Card>
+  )
+}
+
+/** Two ways out (task 12): the goals go to the trash with it, or stay in work without it. */
+function DeleteLifeGoalDialog({
+  activeGoals,
+  onOpenChange,
+}: {
+  activeGoals: number
+  onOpenChange: (open: boolean) => void
+}) {
+  const mutation = useDeleteLifeGoalMutation()
+  const run = (goals: 'trash' | 'detach') =>
+    mutation.mutate(goals, { onSuccess: () => onOpenChange(false) })
+
+  return (
+    <Dialog onOpenChange={onOpenChange} open>
+      <DialogContent data-testid="life-goal-delete-dialog">
+        <DialogHeader>
+          <DialogTitle>Удалить дело жизни?</DialogTitle>
+          <DialogDescription>
+            {activeGoals === 0
+              ? 'Пока его нет, новую цель завести нельзя.'
+              : 'Что сделать с целями под ним? Пока дела жизни нет, новую цель завести нельзя.'}
+          </DialogDescription>
+        </DialogHeader>
+        {mutation.isError ? (
+          <Typography tone="destructive" variant="bodySm">
+            {describeApiError(mutation.error, 'Не получилось. Попробуй ещё раз.')}
+          </Typography>
+        ) : null}
+        <DialogFooter className="flex-col gap-2 sm:flex-col">
+          <Button
+            data-testid="life-goal-delete-detach"
+            disabled={mutation.isPending}
+            onClick={() => run('detach')}
+            type="button"
+            variant="outline"
+          >
+            Открепить цели — они продолжат работать
+          </Button>
+          <Button
+            data-testid="life-goal-delete-trash"
+            disabled={mutation.isPending}
+            onClick={() => run('trash')}
+            type="button"
+            variant="destructive"
+          >
+            Удалить вместе с целями в корзину
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

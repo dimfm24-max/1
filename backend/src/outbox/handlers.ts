@@ -33,6 +33,19 @@ export const taskHandlers = {
       return createAuthTasks(runtime).deliverPasswordReset(input, { finalAttempt, now, signal })
     },
   },
+  /**
+   * The confirmation letter after registration or a request from the banner. Same retry budget
+   * as a password reset, for the same reason: a retry has to clear the per-account cooldown.
+   */
+  'auth:email-verification': {
+    maxAttempts: 5,
+    run: async ({ finalAttempt, now, payload, signal }, runtime) => {
+      const input = userIdPayload(payload)
+      const { createAuthTasks } = await import('../modules/auth')
+
+      return createAuthTasks(runtime).deliverEmailVerification(input, { finalAttempt, now, signal })
+    },
+  },
   /** Tells someone their password changed. Nothing to compensate for if it never arrives. */
   'auth:password-changed': {
     maxAttempts: 3,
@@ -69,6 +82,16 @@ function emailPayload(payload: unknown): { email: string } {
   }
 
   return { email }
+}
+
+function userIdPayload(payload: unknown): { userId: string } {
+  const userId = (payload as { userId?: unknown })?.userId
+
+  if (typeof userId !== 'string' || userId.length === 0) {
+    throw new TerminalTaskError('Task payload is missing a user id')
+  }
+
+  return { userId }
 }
 
 export function taskTypeNames(registry: TaskHandlerRegistry = taskHandlers): string[] {

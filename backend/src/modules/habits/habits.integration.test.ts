@@ -24,7 +24,18 @@ maybeDescribe('habits API integration', () => {
     JWT_SECRET: '12345678901234567890123456789012',
   })
   const prisma = createPrisma(databaseUrl!)
-  const app = createApp({ env, prisma })
+  let now = new Date()
+  const server = createApp({ env, prisma, clock: { now: () => now } })
+  // Requests still name the day they stand on as `?today=`. The server now takes the day from
+  // its own clock, so the test moves that clock to the named day: noon UTC, the same date in the
+  // fallback zone.
+  const app = {
+    request(path: string, init?: RequestInit) {
+      const day = /[?&]today=(\d{4}-\d{2}-\d{2})/.exec(path)?.[1]
+      if (day) now = new Date(`${day}T12:00:00.000Z`)
+      return server.request(path, init)
+    },
+  }
 
   beforeEach(async () => {
     await prisma.habitMark.deleteMany()

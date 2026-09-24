@@ -7,6 +7,11 @@ import { cn } from "@/lib/utils"
 const typographyVariants = cva("min-w-0 tracking-normal", {
   variants: {
     variant: {
+      display: "font-heading text-3xl leading-tight font-extrabold tracking-tight md:text-4xl",
+      metric: "font-heading text-6xl leading-none font-extrabold tracking-tight tabular-nums",
+      metricSm: "font-heading text-4xl leading-none font-extrabold tracking-tight tabular-nums",
+      eyebrow: "text-xs leading-normal font-bold tracking-widest uppercase",
+      brand: "font-heading text-xl leading-none font-extrabold tracking-tight whitespace-nowrap",
       h1: "font-heading text-4xl leading-tight font-semibold",
       h2: "font-heading text-3xl leading-tight font-semibold",
       h3: "font-heading text-2xl leading-snug font-semibold",
@@ -85,6 +90,11 @@ type TypographyVariant = NonNullable<
 >
 
 const defaultElementByVariant: Record<TypographyVariant, React.ElementType> = {
+  display: "h1",
+  metric: "span",
+  metricSm: "span",
+  eyebrow: "span",
+  brand: "span",
   h1: "h1",
   h2: "h2",
   h3: "h3",

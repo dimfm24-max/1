@@ -8,16 +8,18 @@ import { cn } from '@/lib/utils'
 
 type PasswordInputProps = Omit<ComponentProps<typeof Input>, 'type'> & {
   visibilityLabel?: string
+  toggleTestId?: string
 }
 
 export function PasswordInput({
   className,
   id,
-  visibilityLabel = 'entered password',
+  visibilityLabel = 'пароль',
+  toggleTestId,
   ...props
 }: PasswordInputProps) {
   const [isVisible, setIsVisible] = useState(false)
-  const actionLabel = `${isVisible ? 'Hide' : 'Show'} ${visibilityLabel}`
+  const actionLabel = `${isVisible ? 'Скрыть' : 'Показать'} ${visibilityLabel}`
 
   return (
     <div className="relative">
@@ -31,6 +33,7 @@ export function PasswordInput({
         aria-controls={id}
         aria-label={actionLabel}
         className="absolute top-0 right-0 text-muted-foreground hover:bg-transparent hover:text-foreground"
+        data-testid={toggleTestId}
         onClick={() => setIsVisible((visible) => !visible)}
         size="icon"
         type="button"

@@ -42,6 +42,66 @@ export function resolveAvatarContentType(file: File): AvatarContentType | null {
   return null
 }
 
+/** How the picked file reaches the backend: as it is, or redrawn as JPEG in the browser. */
+export type AvatarFileKind = 'as-is' | 'convert' | 'unsupported'
+
+/**
+ * JPEG and PNG go up as they are. WebP and HEIC are redrawn as JPEG first: Chrome and Firefox
+ * cannot show a stored HEIC, and a WebP value in the avatar contract would break the parse in an
+ * installed mobile build. HEIC decodes only where the browser can read it, mostly Safari.
+ */
+export function classifyAvatarFile(file: File): AvatarFileKind {
+  const type = file.type.toLowerCase()
+  const extension = file.name.toLowerCase().split('.').pop()
+  if (type === 'image/jpeg' || type === 'image/png') return 'as-is'
+  if (type === 'image/webp' || type === 'image/heic' || type === 'image/heif') return 'convert'
+  if (type === '' || type === 'application/octet-stream') {
+    if (extension === 'jpg' || extension === 'jpeg' || extension === 'png') return 'as-is'
+    if (extension === 'webp' || extension === 'heic' || extension === 'heif') return 'convert'
+  }
+  return 'unsupported'
+}
+
+/** Longest side of a redrawn photo: sharp in the header and far below the 5 MB limit. */
+const convertedMaxSide = 1024
+
+export async function prepareAvatarFile(file: File): Promise<File> {
+  const kind = classifyAvatarFile(file)
+  if (kind === 'as-is') return file
+  if (kind === 'unsupported') {
+    throw new AvatarUploadError('unsupported-file', 'Выбери фото в JPEG, PNG, WebP или HEIC.')
+  }
+
+  let bitmap: ImageBitmap
+  try {
+    bitmap = await createImageBitmap(file)
+  } catch {
+    throw new AvatarUploadError(
+      'unsupported-file',
+      'Этот браузер не может открыть такое фото. Сохрани его как JPEG или PNG и выбери снова.',
+    )
+  }
+
+  const scale = Math.min(1, convertedMaxSide / Math.max(bitmap.width, bitmap.height))
+  const canvas = document.createElement('canvas')
+  canvas.width = Math.max(1, Math.round(bitmap.width * scale))
+  canvas.height = Math.max(1, Math.round(bitmap.height * scale))
+  const context = canvas.getContext('2d')
+  if (!context) {
+    bitmap.close()
+    throw new AvatarUploadError('unsupported-file', 'Не получилось подготовить фото. Выбери JPEG или PNG.')
+  }
+  context.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
+  bitmap.close()
+
+  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.9))
+  if (!blob) {
+    throw new AvatarUploadError('unsupported-file', 'Не получилось подготовить фото. Выбери JPEG или PNG.')
+  }
+  const name = `${file.name.replace(/\.[^.]*$/, '') || 'photo'}.jpg`
+  return new File([blob], name, { type: 'image/jpeg' })
+}
+
 export function describeAvatarFile(file: File) {
   const contentType = resolveAvatarContentType(file)
 
@@ -70,7 +130,7 @@ export async function uploadAvatarObject(ticket: UploadTicket, file: File) {
   if (file.size !== ticket.contentLength) {
     throw new AvatarUploadError(
       'size-changed',
-      'The file changed while it was being uploaded. Pick it again.',
+      'Файл изменился во время загрузки. Выбери его снова.',
     )
   }
 
@@ -87,14 +147,14 @@ export async function uploadAvatarObject(ticket: UploadTicket, file: File) {
   } catch {
     throw new AvatarUploadError(
       'transfer-failed',
-      'The upload could not reach storage. Check your connection and try again.',
+      'Не удалось связаться с хранилищем. Проверь интернет и попробуй ещё раз.',
     )
   }
 
   if (!response.ok && response.status !== 412) {
     throw new AvatarUploadError(
       'transfer-failed',
-      'Storage rejected the upload. Try again with a different file.',
+      'Хранилище не приняло файл. Попробуй другой.',
     )
   }
 }

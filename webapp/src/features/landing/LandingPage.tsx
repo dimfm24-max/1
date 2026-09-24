@@ -83,7 +83,7 @@ export function LandingPage({ returnTo }: { returnTo?: string }) {
       <Card data-testid="landing-cta">
         <CardHeader>
           <Typography as="h2" variant="h6">
-            Начните с дела вашей жизни
+            Начни с дела своей жизни
           </Typography>
           <CardDescription>
             Назовите то, ради чего ставите цели — остальное вырастет из него.
@@ -103,7 +103,7 @@ export function LandingPage({ returnTo }: { returnTo?: string }) {
 
 const levels = [
   {
-    title: 'Дело вашей жизни',
+    title: 'Дело жизни',
     description: 'То, ради чего всё остальное. Одно, без срока.',
   },
   {

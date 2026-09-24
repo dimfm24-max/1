@@ -19,3 +19,10 @@ export function updateProfile(
     },
   )
 }
+
+/** The first-run wizard is done (task 07). */
+export function completeOnboarding(transport: AuthenticatedTransport) {
+  return transport.request('/api/users/me/onboarding', updateProfileResponseSchema, {
+    method: 'POST',
+  })
+}

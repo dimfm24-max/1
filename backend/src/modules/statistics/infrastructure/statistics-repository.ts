@@ -20,14 +20,20 @@ export function createPrismaStatisticsRepository(db: DbClient): StatisticsReader
       const range = { gte: toDayDate(window.from), lte: toDayDate(window.to) }
 
       const tasks = await db.task.findMany({
-        where: { userId, scheduledOn: range },
+        where: { userId, scheduledOn: range, deletedAt: null },
         select: {
           scheduledOn: true,
           outcome: true,
           durationMinutes: true,
           step: {
             select: {
-              stage: { select: { goal: { select: { id: true, title: true } } } },
+              deletedAt: true,
+              stage: {
+                select: {
+                  deletedAt: true,
+                  goal: { select: { id: true, title: true, deletedAt: true } },
+                },
+              },
             },
           },
         },
@@ -56,8 +62,13 @@ export function createPrismaStatisticsRepository(db: DbClient): StatisticsReader
           totals.doneMinutes += task.durationMinutes
           daysWithWork.add(date)
 
-          const goal = task.step?.stage.goal
-          if (goal) {
+          // Time on a goal in the trash is not counted while it is there (task 11).
+          const step = task.step
+          const goal =
+            step && step.deletedAt === null && step.stage.deletedAt === null
+              ? step.stage.goal
+              : null
+          if (goal && goal.deletedAt === null) {
             const entry = goals.get(goal.id) ?? {
               goalId: goal.id,
               title: goal.title,
@@ -82,7 +93,7 @@ export function createPrismaStatisticsRepository(db: DbClient): StatisticsReader
       totals.activeDays = daysWithWork.size
 
       const habits = await db.habit.findMany({
-        where: { userId, archivedAt: null },
+        where: { userId, archivedAt: null, deletedAt: null },
         orderBy: { position: 'asc' },
         select: {
           id: true,

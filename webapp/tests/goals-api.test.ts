@@ -13,7 +13,7 @@ function goal(overrides: Partial<GoalDto> = {}): GoalDto {
     id: 'goal-1',
     title: 'Пробежать марафон',
     description: null,
-    deadline: '2027-05-01T00:00:00.000Z',
+    deadline: '2027-05-01',
     measureUnit: 'километров',
     targetValue: 42,
     currentValue: 0,
@@ -58,19 +58,21 @@ test('a new goal is validated before it leaves the browser', async () => {
 
   await createGoal(transport as never, {
     title: '  Пробежать марафон  ',
-    deadline: '2027-05-01T00:00:00.000Z',
+    deadline: '2027-05-01',
     measureUnit: ' километров ',
     targetValue: 42,
     progressMode: 'manual',
+    deadlineWarningDays: 3,
   })
 
   // Trimmed by the contract, not by the component: every caller gets the same normalisation.
   expect(calls[0]?.body).toEqual({
     title: 'Пробежать марафон',
-    deadline: '2027-05-01T00:00:00.000Z',
+    deadline: '2027-05-01',
     measureUnit: 'километров',
     targetValue: 42,
     progressMode: 'manual',
+    deadlineWarningDays: 3,
   })
 })
 

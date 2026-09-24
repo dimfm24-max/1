@@ -48,6 +48,7 @@ const validUser = {
   email: 'Ada@Example.com',
   displayName: null,
   createdAt: '2026-01-01T00:00:00.000Z',
+  emailVerified: false,
 }
 
 function schemaCases(contracts: Contracts): SchemaCase[] {
@@ -112,6 +113,7 @@ function schemaCases(contracts: Contracts): SchemaCase[] {
         { ...validUser, role: 'owner' },
         { ...validUser, createdAt: 'yesterday' },
         { ...validUser, displayName: undefined },
+        { ...validUser, emailVerified: undefined },
       ],
     },
     {

@@ -15,6 +15,10 @@ export function createPrismaAuthRepository(db: DbClient): AuthRepository {
       return db.user.findUnique({ where: { email } })
     },
 
+    findUserById(id) {
+      return db.user.findUnique({ where: { id } })
+    },
+
     async createPasswordUserWithSession(input) {
       try {
         return await db.$transaction(async (tx) => {
@@ -35,6 +39,9 @@ export function createPrismaAuthRepository(db: DbClient): AuthRepository {
               ipAddress: input.session.metadata.ipAddress,
             },
             select: { id: true },
+          })
+          await input.queueVerification?.(user.id, async (task) => {
+            await enqueueTask(tx, task)
           })
 
           return { user, session }
@@ -61,6 +68,8 @@ export function createPrismaAuthRepository(db: DbClient): AuthRepository {
             data: {
               displayName: input.displayName,
               email: input.email,
+              // The provider has already proven the address.
+              emailVerifiedAt: new Date(),
               passwordHash: null,
               ...(input.provider === 'apple'
                 ? { appleSubject: input.subject }
@@ -320,6 +329,61 @@ export function createPrismaAuthRepository(db: DbClient): AuthRepository {
       return token !== null
     },
 
+    createEmailVerificationToken(input) {
+      return db.$transaction(async (tx) => {
+        await acquireUserAuthenticationAuthorityLock(tx, input.userId)
+        const recentToken = await tx.emailVerificationToken.findFirst({
+          where: { userId: input.userId, createdAt: { gte: input.createdAfter } },
+          select: { id: true },
+        })
+        if (recentToken) return false
+
+        // Only the newest letter works: an older link could have been forwarded or leaked.
+        await tx.emailVerificationToken.updateMany({
+          where: { userId: input.userId, usedAt: null },
+          data: { usedAt: input.now },
+        })
+        await tx.emailVerificationToken.create({
+          data: { userId: input.userId, tokenHash: input.tokenHash, expiresAt: input.expiresAt },
+        })
+        return true
+      }, userAuthenticationSessionTransactionOptions)
+    },
+
+    async invalidateEmailVerificationToken(input) {
+      await db.emailVerificationToken.updateMany({
+        where: { tokenHash: input.tokenHash, usedAt: null },
+        data: { usedAt: input.now },
+      })
+    },
+
+    completeEmailVerification(input) {
+      return db.$transaction(async (tx) => {
+        // Spending the token is the guard: of two clicks at once, one update finds it unused.
+        const token = await tx.emailVerificationToken.findUnique({
+          where: { tokenHash: input.tokenHash },
+          select: { userId: true },
+        })
+        if (!token) return false
+
+        const spent = await tx.emailVerificationToken.updateMany({
+          where: { tokenHash: input.tokenHash, usedAt: null, expiresAt: { gt: input.now } },
+          data: { usedAt: input.now },
+        })
+        if (spent.count !== 1) return false
+
+        await tx.emailVerificationToken.updateMany({
+          where: { userId: token.userId, usedAt: null },
+          data: { usedAt: input.now },
+        })
+        await tx.user.updateMany({
+          where: { id: token.userId, emailVerifiedAt: null },
+          data: { emailVerifiedAt: input.now },
+        })
+        return true
+      })
+    },
+
     completePasswordReset(input) {
       return db.$transaction(async (tx) => {
         const candidate = await tx.passwordResetToken.findFirst({
@@ -347,6 +411,16 @@ export function createPrismaAuthRepository(db: DbClient): AuthRepository {
         await tx.user.update({
           where: { id: candidate.userId },
           data: { passwordHash: input.passwordHash },
+        })
+        // The reset letter reached this address, so the address is proven. This also rescues
+        // the real owner when someone else registered with their address first.
+        await tx.user.updateMany({
+          where: { id: candidate.userId, emailVerifiedAt: null },
+          data: { emailVerifiedAt: input.now },
+        })
+        await tx.emailVerificationToken.updateMany({
+          where: { userId: candidate.userId, usedAt: null },
+          data: { usedAt: input.now },
         })
         await tx.passwordResetToken.updateMany({
           where: { userId: candidate.userId, usedAt: null },

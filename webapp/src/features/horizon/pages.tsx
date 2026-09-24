@@ -1,5 +1,7 @@
+import type { Tone } from '@dilife/contracts'
 import { useId, useState } from 'react'
 
+import { DateField } from '@/components/DateField'
 import { Typography } from '@/components/typography'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -8,7 +10,8 @@ import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/components/ui
 import { Input } from '@/components/ui/input'
 import { Progress } from '@/components/ui/progress'
 import { Spinner } from '@/components/ui/spinner'
-import { toDayDate, useDayContextQuery, useUpdateSettingsMutation } from '@/features/day'
+import { useSettingsQuery, useToday, useUpdateSettingsMutation } from '@/features/settings'
+import { toneText } from '@/features/tone'
 import { describeHorizon, formatCount, unitForms } from './horizon'
 
 /**
@@ -16,8 +19,8 @@ import { describeHorizon, formatCount, unitForms } from './horizon'
  * tone the person chose, so the same numbers can arrive as a push or as a plain statement.
  */
 export function HorizonPage() {
-  const [today] = useState(() => toDayDate(new Date()))
-  const context = useDayContextQuery()
+  const { today } = useToday()
+  const context = useSettingsQuery()
 
   if (context.isPending) {
     return (
@@ -31,7 +34,7 @@ export function HorizonPage() {
     return (
       <Alert data-testid="horizon-error" variant="destructive">
         <AlertTitle>Не удалось загрузить горизонт</AlertTitle>
-        <AlertDescription>Проверьте соединение и обновите страницу.</AlertDescription>
+        <AlertDescription>Проверь интернет и обнови страницу.</AlertDescription>
       </Alert>
     )
   }
@@ -40,10 +43,10 @@ export function HorizonPage() {
 
   return (
     <section className="flex flex-col gap-6 p-4 md:p-6" data-testid="horizon-page">
-      <HorizonSettings birthDate={birthDate} lifeExpectancy={lifeExpectancy} />
+      <HorizonSettings birthDate={birthDate} lifeExpectancy={lifeExpectancy} today={today} />
       {birthDate === null || lifeExpectancy === null ? (
         <Typography data-testid="horizon-empty" tone="muted" variant="bodySm">
-          Укажите дату рождения и ожидаемую продолжительность жизни — и увидите, сколько
+          Укажи дату рождения и ожидаемую продолжительность жизни — и увидишь, сколько
           времени впереди.
         </Typography>
       ) : (
@@ -67,7 +70,7 @@ function HorizonView({
   birthDate: string
   lifeExpectancy: number
   today: string
-  tone: 'friendly' | 'pushing' | 'respectful' | 'neutral'
+  tone: Tone
 }) {
   const horizon = describeHorizon(birthDate, lifeExpectancy, today)
 
@@ -79,7 +82,7 @@ function HorizonView({
             Горизонт жизни
           </Typography>
           <CardDescription data-testid="horizon-message">
-            {horizonMessage(tone, horizon.isPast)}
+            {toneText(tone, horizon.isPast ? 'horizonPast' : 'horizon')}
           </CardDescription>
           <Progress aria-label="Прожитая часть" value={horizon.livedPercent} />
         </CardHeader>
@@ -138,25 +141,14 @@ function WeekGrid({ livedWeeks, totalWeeks }: { livedWeeks: number; totalWeeks: 
   )
 }
 
-function horizonMessage(
-  tone: 'friendly' | 'pushing' | 'respectful' | 'neutral',
-  isPast: boolean,
-) {
-  if (isPast) {
-    return 'Указанный срок уже позади. Измените ожидаемую продолжительность, если хотите другую точку отсчёта.'
-  }
-  if (tone === 'pushing') return 'Время уходит. Каждый незакрашенный квадрат ещё можно прожить осознанно.'
-  if (tone === 'respectful') return 'Перед Вами — время, которым Вы можете распорядиться.'
-  if (tone === 'neutral') return 'Оставшееся время по вашим данным.'
-  return 'Впереди ещё много времени — вопрос лишь в том, на что оно уйдёт.'
-}
-
 function HorizonSettings({
   birthDate,
   lifeExpectancy,
+  today,
 }: {
   birthDate: string | null
   lifeExpectancy: number | null
+  today: string
 }) {
   const birthId = useId()
   const expectancyId = useId()
@@ -173,22 +165,23 @@ function HorizonSettings({
     <Card data-testid="horizon-settings">
       <CardHeader>
         <Typography as="h2" variant="h6">
-          Ваши данные
+          Твои данные
         </Typography>
         <CardDescription>
-          Ожидаемая продолжительность — это ваша оценка, а не прогноз. Её можно менять.
+          Ожидаемая продолжительность — это твоя оценка, а не прогноз. Её можно менять.
         </CardDescription>
       </CardHeader>
       <CardContent>
         <FieldGroup>
           <Field>
             <FieldLabel htmlFor={birthId}>Дата рождения</FieldLabel>
-            <Input
+            <DateField
               data-testid="horizon-birth"
               id={birthId}
-              onChange={(event) => setBirth(event.target.value)}
-              type="date"
+              max={today}
+              onChange={setBirth}
               value={birth}
+              yearRange={{ from: 1920, to: Number(today.slice(0, 4)) }}
             />
           </Field>
           <Field>
@@ -217,4 +210,21 @@ function HorizonSettings({
       </CardContent>
     </Card>
   )
+}
+
+/** «Настройки → Горизонт»: the same two numbers as on the horizon screen. */
+export function HorizonSettingsPanel() {
+  const { today } = useToday()
+  const context = useSettingsQuery()
+
+  if (!context.data) {
+    return (
+      <Typography tone="muted" variant="bodySm">
+        {context.isError ? 'Не удалось загрузить настройки. Обнови страницу.' : 'Загружаем…'}
+      </Typography>
+    )
+  }
+
+  const { birthDate, lifeExpectancy } = context.data.settings
+  return <HorizonSettings birthDate={birthDate} lifeExpectancy={lifeExpectancy} today={today} />
 }

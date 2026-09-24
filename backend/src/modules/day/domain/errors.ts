@@ -3,6 +3,8 @@ export type DayFailureKind =
   | 'not_found'
   /** A task already closed cannot be closed again with a different answer. */
   | 'task_already_resolved'
+  /** A goal step is planned by hand and never repeats (owner's decision on task 18). */
+  | 'repeat_with_step'
 
 export class DayFailure extends Error {
   constructor(

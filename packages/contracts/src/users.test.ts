@@ -7,6 +7,7 @@ const user = {
   email: 'user@example.com',
   displayName: 'User',
   createdAt: '2026-07-20T00:00:00.000Z',
+  emailVerified: true,
 } as const
 
 describe('user contracts', () => {
