@@ -31,7 +31,7 @@ import {
 } from '@/features/auth'
 import { useAvatarImage, useAvatarQuery } from '@/features/avatar'
 import { homePath, safeReturnPath } from '@/features/navigation'
-import { DayPage, PlanStepButton } from '@/features/day'
+import { CategoriesPanel, DayPage, PlanStepButton, TemplatesPanel } from '@/features/day'
 import { GoalsPage } from '@/features/goals'
 import { LandingPage } from '@/features/landing'
 import { HabitsPage } from '@/features/habits'
@@ -249,6 +249,8 @@ const settingsSections = [
   { id: 'profile', label: 'Профиль' },
   { id: 'tone', label: 'Тон' },
   { id: 'day', label: 'День' },
+  { id: 'categories', label: 'Категории' },
+  { id: 'templates', label: 'Шаблоны дня' },
   { id: 'horizon', label: 'Горизонт жизни' },
   { id: 'appearance', label: 'Оформление' },
   { id: 'share', label: 'Доступ по ссылке' },
@@ -281,6 +283,16 @@ export function UserSettingsPage() {
       {active === 'day' ? (
         <SettingsPanelFrame>
           <DaySettingsPanel />
+        </SettingsPanelFrame>
+      ) : null}
+      {active === 'categories' ? (
+        <SettingsPanelFrame>
+          <CategoriesPanel />
+        </SettingsPanelFrame>
+      ) : null}
+      {active === 'templates' ? (
+        <SettingsPanelFrame>
+          <TemplatesPanel />
         </SettingsPanelFrame>
       ) : null}
       {active === 'horizon' ? (
