@@ -1,13 +1,13 @@
 import { useForm } from '@tanstack/react-form'
 import { Link } from '@tanstack/react-router'
-import { loginRequestSchema, type LoginRequest } from '@web-app-demo/contracts'
+import { loginRequestSchema, type LoginRequest } from '@dilife/contracts'
 import { useId, useState } from 'react'
 
 import { Typography } from '@/components/typography'
 import { Button } from '@/components/ui/button'
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
-import { ApiRequestError } from '@/platform/api'
+import { describeApiError } from '@/platform/api'
 import { useAuth } from '../use-auth'
 import { FormAlert } from './form-errors'
 import type { FieldErrors } from './form-model'
@@ -40,7 +40,9 @@ export function LoginForm({ returnTo }: { returnTo?: string }) {
         await auth.login(result.data as LoginRequest)
       } catch (caughtError) {
         setFormError(
-          caughtError instanceof ApiRequestError ? caughtError.message : 'Unexpected auth error',
+          describeApiError(caughtError, 'Войти не получилось. Попробуй ещё раз.', {
+            unauthorized: 'login',
+          }),
         )
       }
     },
@@ -57,10 +59,10 @@ export function LoginForm({ returnTo }: { returnTo?: string }) {
       <FieldGroup className="gap-5">
         <div className="flex flex-col items-center gap-1 text-center">
           <Typography as="h1" variant="h3" balance>
-            Login to your account
+            Вход в DiLife
           </Typography>
           <Typography variant="bodySm" tone="muted" balance>
-            Enter your email below to login to your account
+            Введи почту и пароль
           </Typography>
         </div>
 
@@ -68,12 +70,13 @@ export function LoginForm({ returnTo }: { returnTo?: string }) {
           name="email"
           children={(field) => (
             <Field data-invalid={hasErrors(fieldErrors.email)}>
-              <FieldLabel htmlFor={emailId}>Email</FieldLabel>
+              <FieldLabel htmlFor={emailId}>Почта</FieldLabel>
               <Input
                 aria-describedby={errorId(fieldErrors.email, emailErrorId)}
                 aria-invalid={hasErrors(fieldErrors.email)}
                 autoComplete="email"
                 className="bg-background"
+                data-testid="login-email"
                 id={emailId}
                 inputMode="email"
                 name={field.name}
@@ -83,7 +86,7 @@ export function LoginForm({ returnTo }: { returnTo?: string }) {
                   clearFieldError('email', setFieldErrors)
                   setFormError(null)
                 }}
-                placeholder="m@example.com"
+                placeholder="name@example.com"
                 type="email"
                 value={field.state.value}
               />
@@ -97,10 +100,14 @@ export function LoginForm({ returnTo }: { returnTo?: string }) {
           children={(field) => (
             <Field data-invalid={hasErrors(fieldErrors.password)}>
               <div className="flex items-center">
-                <FieldLabel htmlFor={passwordId}>Password</FieldLabel>
+                <FieldLabel htmlFor={passwordId}>Пароль</FieldLabel>
                 <Typography asChild variant="bodySm">
-                  <Link className="ml-auto underline-offset-4 hover:underline" to="/forgot-password">
-                    Forgot your password?
+                  <Link
+                    className="ml-auto underline-offset-4 hover:underline"
+                    data-testid="login-forgot-link"
+                    to="/forgot-password"
+                  >
+                    Забыл пароль?
                   </Link>
                 </Typography>
               </div>
@@ -109,6 +116,7 @@ export function LoginForm({ returnTo }: { returnTo?: string }) {
                 aria-invalid={hasErrors(fieldErrors.password)}
                 autoComplete="current-password"
                 className="bg-background"
+                data-testid="login-password"
                 id={passwordId}
                 name={field.name}
                 onBlur={field.handleBlur}
@@ -130,17 +138,17 @@ export function LoginForm({ returnTo }: { returnTo?: string }) {
           <form.Subscribe
             selector={(state) => state.isSubmitting}
             children={(isSubmitting) => (
-              <Button disabled={isSubmitting} type="submit">
-                {isSubmitting ? 'Signing in…' : 'Login'}
+              <Button data-testid="login-submit" disabled={isSubmitting} type="submit">
+                {isSubmitting ? 'Входим…' : 'Войти'}
               </Button>
             )}
           />
         </Field>
 
         <FieldDescription className="text-center">
-          Don&apos;t have an account?{' '}
+          Ещё нет аккаунта?{' '}
           <Link search={{ returnTo }} to="/signup">
-            Sign up
+            Зарегистрироваться
           </Link>
         </FieldDescription>
       </FieldGroup>

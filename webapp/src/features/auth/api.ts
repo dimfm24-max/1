@@ -3,6 +3,9 @@ import {
   cookieLogoutRequestSchema,
   cookieRefreshRequestSchema,
   cookieRefreshResponseSchema,
+  emailVerificationConfirmRequestSchema,
+  emailVerificationConfirmResponseSchema,
+  emailVerificationRequestResponseSchema,
   loginRequestSchema,
   meResponseSchema,
   passwordResetConfirmRequestSchema,
@@ -17,7 +20,7 @@ import {
   type PasswordResetRequest,
   type PasswordResetRequestResponse,
   type RegisterRequest,
-} from '@web-app-demo/contracts'
+} from '@dilife/contracts'
 import type { z } from 'zod'
 import { ApiRequestError, HttpClient, type HttpRequestOptions } from '@/platform/api'
 import {
@@ -27,6 +30,7 @@ import {
 import {
   currentBrowserSessionEpoch,
   isBrowserSessionEpochCurrent,
+  publishAccountChanged,
   publishBrowserSessionState,
 } from './session-coordinator'
 
@@ -109,6 +113,25 @@ export class AuthApi {
       this.options.setAccessToken(null)
       return { data: undefined, sessionEpoch: sessionEvent.epoch }
     })
+  }
+
+  /** Works without a session: the letter is often opened where the person is not signed in. */
+  async confirmEmailVerification(token: string): Promise<void> {
+    const payload = emailVerificationConfirmRequestSchema.parse({ token })
+    await this.http.request(
+      '/api/auth/email-verification/confirm',
+      emailVerificationConfirmResponseSchema,
+      { method: 'POST', body: payload },
+    )
+    publishAccountChanged()
+  }
+
+  async requestEmailVerification(): Promise<void> {
+    await this.requestAuthenticated(
+      '/api/auth/email-verification/request',
+      emailVerificationRequestResponseSchema,
+      { method: 'POST', body: {} },
+    )
   }
 
   refresh(expectedEpoch = this.sessionEpoch): Promise<CookieRefreshResponse> {
@@ -211,7 +234,7 @@ export class AuthApi {
         throw refreshError
       }
       if (!this.isSessionEpochCurrent(requestEpoch)) throw error
-      if (!accessToken || !hasSamePrincipal(accessToken, refreshed.accessToken)) {
+      if (!accessToken || !hasSameSession(accessToken, refreshed)) {
         this.options.setAccessToken(null)
         await this.options.onAuthExpired?.()
         throw error
@@ -232,13 +255,18 @@ export class AuthApi {
   }
 }
 
-function hasSamePrincipal(currentAccessToken: string, nextAccessToken: string) {
-  const currentSubject = accessTokenSubject(currentAccessToken)
-  const nextSubject = accessTokenSubject(nextAccessToken)
-  return currentSubject !== null && currentSubject === nextSubject
+function hasSameSession(currentAccessToken: string, refreshed: CookieRefreshResponse) {
+  const currentIdentity = accessTokenIdentity(currentAccessToken)
+  const nextIdentity = accessTokenIdentity(refreshed.accessToken)
+  if (!currentIdentity || !nextIdentity) return false
+
+  return (
+    currentIdentity.userId === nextIdentity.userId
+    && currentIdentity.sessionId === nextIdentity.sessionId
+  )
 }
 
-function accessTokenSubject(accessToken: string) {
+function accessTokenIdentity(accessToken: string) {
   const payload = accessToken.split('.')[1]
   if (!payload) return null
 
@@ -246,8 +274,13 @@ function accessTokenSubject(accessToken: string) {
     const normalized = payload.replace(/-/g, '+').replace(/_/g, '/')
     const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=')
     const bytes = Uint8Array.from(atob(padded), (character) => character.charCodeAt(0))
-    const decoded = JSON.parse(new TextDecoder().decode(bytes)) as { sub?: unknown }
-    return typeof decoded.sub === 'string' ? decoded.sub : null
+    const decoded = JSON.parse(new TextDecoder().decode(bytes)) as {
+      sub?: unknown
+      sessionId?: unknown
+    }
+    return typeof decoded.sub === 'string' && typeof decoded.sessionId === 'string'
+      ? { userId: decoded.sub, sessionId: decoded.sessionId }
+      : null
   } catch {
     return null
   }

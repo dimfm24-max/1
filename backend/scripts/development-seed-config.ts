@@ -1,4 +1,4 @@
-import { emailSchema, passwordSchema } from '@web-app-demo/contracts'
+import { emailSchema, passwordSchema } from '@dilife/contracts'
 
 import type { DevelopmentSeedAccounts } from '../src/modules/users/infrastructure/development-bootstrap'
 
@@ -36,11 +36,7 @@ export function parseDevelopmentSeedConfig(
   }
 
   const accounts = {
-    admin: parseCredentials(source, 'DEV_SEED_ADMIN'),
     user: parseCredentials(source, 'DEV_SEED_USER'),
-  }
-  if (accounts.admin.email === accounts.user.email) {
-    throw new Error('DEV_SEED_ADMIN_EMAIL and DEV_SEED_USER_EMAIL must be different')
   }
 
   return { accounts, databaseUrl }
@@ -48,7 +44,7 @@ export function parseDevelopmentSeedConfig(
 
 function parseCredentials(
   source: Record<string, string | undefined>,
-  prefix: 'DEV_SEED_ADMIN' | 'DEV_SEED_USER',
+  prefix: 'DEV_SEED_USER',
 ): DevelopmentSeedCredentials {
   const emailKey = `${prefix}_EMAIL`
   const passwordKey = `${prefix}_PASSWORD`

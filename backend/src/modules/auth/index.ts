@@ -4,12 +4,12 @@ import type { AppEnv } from '../../env'
 import { drainPassCapacity } from '../../outbox'
 import type { BackendRuntime } from '../../runtime'
 import { AuthService } from './application/auth-service'
-import { passwordResetCooldownSeconds, type Clock, type LogoutCleanup, type ProjectUser } from './application/ports'
-import { toBaseUserDto } from './domain/user'
+import { passwordResetCooldownSeconds, type Clock, type LogoutCleanup } from './application/ports'
 import { createPrismaAuthRepository } from './infrastructure/auth-repository'
 import { signAccessToken, verifyAccessToken } from './infrastructure/access-tokens'
 import { hashPassword, verifyPassword } from './infrastructure/passwords'
 import { createPasswordResetNotifier } from './infrastructure/password-reset-notifier'
+import { createEmailVerificationTaskQueue } from './infrastructure/email-verification-task-queue'
 import { createPasswordResetTaskQueue } from './infrastructure/password-reset-task-queue'
 import {
   createPasswordResetToken,
@@ -21,8 +21,10 @@ import {
   hashRefreshToken,
   hashRefreshTokenFamily,
 } from './infrastructure/refresh-tokens'
-import { createRequireAuth, createRequireRole, type AuthHttpEnv } from './transport/middleware'
+import { verifySocialIdentity } from './infrastructure/social-providers'
+import { createRequireAuth, type AuthHttpEnv } from './transport/middleware'
 import { createAuthRoutes } from './transport/routes'
+import { executeAuth } from './transport/errors'
 
 type CreateAuthModuleOptions = {
   clock?: Clock
@@ -30,7 +32,6 @@ type CreateAuthModuleOptions = {
   emailDelivery: EmailDelivery
   env: AppEnv
   logoutCleanup?: LogoutCleanup
-  projectUser?: ProjectUser
 }
 
 const systemClock: Clock = {
@@ -45,16 +46,14 @@ export function createAuthModule({
   emailDelivery,
   env,
   logoutCleanup = noLogoutCleanup,
-  projectUser = toBaseUserDto,
 }: CreateAuthModuleOptions) {
-  const service = buildAuthService({ clock, db, emailDelivery, env, logoutCleanup, projectUser })
+  const service = buildAuthService({ clock, db, emailDelivery, env, logoutCleanup })
   const requireAuth = createRequireAuth((accessToken) => service.authenticateAccessToken(accessToken))
 
   return {
     authenticateAccessToken: (accessToken: string | undefined) =>
-      service.authenticateAccessToken(accessToken),
+      executeAuth(() => service.authenticateAccessToken(accessToken)),
     requireAuth,
-    requireAdmin: createRequireRole('admin'),
     routes: createAuthRoutes({ env, requireAuth, service }),
   }
 }
@@ -72,10 +71,10 @@ export function createAuthTasks(runtime: BackendRuntime) {
     emailDelivery: runtime.emailDelivery,
     env: runtime.env,
     logoutCleanup: noLogoutCleanup,
-    projectUser: toBaseUserDto,
   })
 
   return {
+    deliverEmailVerification: service.deliverEmailVerification.bind(service),
     deliverPasswordChanged: service.deliverPasswordChanged.bind(service),
     deliverPasswordReset: service.deliverPasswordReset.bind(service),
   }
@@ -87,7 +86,6 @@ function buildAuthService({
   emailDelivery,
   env,
   logoutCleanup,
-  projectUser,
 }: Required<CreateAuthModuleOptions>) {
   return new AuthService({
     accessTokens: {
@@ -95,6 +93,13 @@ function buildAuthService({
       verify: (token) => verifyAccessToken(token, env),
     },
     clock,
+    emailVerificationTasks: createEmailVerificationTaskQueue(db, {
+      pendingLimit: drainPassCapacity(env),
+    }),
+    emailVerificationTokens: {
+      create: createPasswordResetToken,
+      hash: hashPasswordResetToken,
+    },
     logoutCleanup,
     passwordResetCooldownSeconds,
     passwordResetNotifier: createPasswordResetNotifier(
@@ -110,7 +115,6 @@ function buildAuthService({
       hash: hashPassword,
       verify: verifyPassword,
     },
-    projectUser,
     refreshTokenTtlDays: env.REFRESH_TOKEN_TTL_DAYS,
     refreshReuseGraceSeconds: env.REFRESH_REUSE_GRACE_SECONDS,
     sessionAbsoluteTtlDays: env.SESSION_ABSOLUTE_TTL_DAYS,
@@ -122,9 +126,12 @@ function buildAuthService({
     },
     passwordResetTasks: createPasswordResetTaskQueue(db, { pendingLimit: drainPassCapacity(env) }),
     repository: createPrismaAuthRepository(db),
+    socialIdentities: {
+      verify: (provider, idToken) => verifySocialIdentity(provider, idToken, env),
+    },
   })
 }
 
 export type { AuthHttpEnv }
-export type { LogoutCleanup, ProjectUser } from './application/ports'
+export type { LogoutCleanup } from './application/ports'
 export type { AuthenticatedPrincipal } from './domain/user'

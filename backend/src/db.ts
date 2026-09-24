@@ -9,10 +9,14 @@ export function createPrisma(connectionString: string) {
 
 export type DbClient = ReturnType<typeof createPrisma>
 
+// Push admission intentionally holds its per-user fence through the provider
+// call. Authority transitions take the target fence before the short global
+// role-policy section, but acquire the user's auth lock only after that section
+// so a queued role change does not block the user's login.
+export const maximumPushSendFenceTransactionMs = 120_000
 export const userAuthorityTransitionTransactionOptions = {
-  timeout: 15_000,
+  timeout: maximumPushSendFenceTransactionMs + 15_000,
 } as const
-
 export const userAuthenticationSessionTransactionOptions = {
   timeout: userAuthorityTransitionTransactionOptions.timeout + 5_000,
 } as const
@@ -107,20 +111,39 @@ function isPrismaTransactionFailure(error: unknown) {
   return (error as { code?: unknown }).code === 'P2028'
 }
 
-export function acquireUserRoleMutationLock(
-  prisma: Pick<DbClient, '$executeRaw'>,
-) {
-  return prisma.$executeRaw(
-    Prisma.sql`SELECT pg_advisory_xact_lock(hashtextextended('user-role-mutations', 0))`,
-  )
-}
-
 export function acquireUserAuthenticationAuthorityLock(
   prisma: Pick<DbClient, '$executeRaw'>,
   userId: string,
 ) {
   return prisma.$executeRaw(
     Prisma.sql`SELECT pg_advisory_xact_lock(hashtextextended(${`auth-authority:${userId}`}, 0))`,
+  )
+}
+
+export function acquirePushTokenUserLock(
+  prisma: Pick<DbClient, '$executeRaw'>,
+  userId: string,
+) {
+  return prisma.$executeRaw(
+    Prisma.sql`SELECT pg_advisory_xact_lock(hashtextextended(${`push-tokens:${userId}`}, 0))`,
+  )
+}
+
+export function acquirePushTokenValueLock(
+  prisma: Pick<DbClient, '$executeRaw'>,
+  expoPushToken: string,
+) {
+  return prisma.$executeRaw(
+    Prisma.sql`SELECT pg_advisory_xact_lock(hashtextextended(${`push-token:${expoPushToken}`}, 0))`,
+  )
+}
+
+export function acquirePushInstallationLock(
+  prisma: Pick<DbClient, '$executeRaw'>,
+  installationId: string,
+) {
+  return prisma.$executeRaw(
+    Prisma.sql`SELECT pg_advisory_xact_lock(hashtextextended(${`push-installation:${installationId}`}, 0))`,
   )
 }
 
@@ -140,6 +163,7 @@ export function acquireUserAvatarMutationLock(
     Prisma.sql`SELECT pg_advisory_xact_lock(hashtextextended(${`user-avatar:${userId}`}, 0))`,
   )
 }
+
 export function normalizePgConnectionString(connectionString: string) {
   const url = new URL(connectionString)
   const sslMode = url.searchParams.get('sslmode')

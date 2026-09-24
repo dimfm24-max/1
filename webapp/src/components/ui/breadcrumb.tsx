@@ -106,7 +106,7 @@ function BreadcrumbEllipsis({
       {...props}
     >
       <HugeiconsIcon icon={MoreHorizontalCircle01Icon} strokeWidth={2} />
-      <span className="sr-only">More</span>
+      <span className="sr-only">Ещё</span>
     </span>
   )
 }

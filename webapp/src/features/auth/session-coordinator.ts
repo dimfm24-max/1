@@ -5,7 +5,7 @@ export type BrowserSessionEvent = {
   state: BrowserSessionState
 }
 
-const sessionEventStorageKey = 'web_app_demo:auth-session-event'
+const sessionEventStorageKey = 'dilife:auth-session-event'
 let currentSessionEvent: BrowserSessionEvent = {
   epoch: 'initial',
   state: 'cleared',
@@ -52,6 +52,32 @@ export function subscribeToBrowserSessionChanges(
 
     currentSessionEvent = sessionEvent
     listener(sessionEvent)
+  }
+
+  window.addEventListener('storage', handleStorage)
+  return () => window.removeEventListener('storage', handleStorage)
+}
+
+const accountChangedStorageKey = 'dilife:account-changed'
+
+/**
+ * Tells the other tabs of this browser that the account itself changed - the address got
+ * confirmed - so they reload it. The session stays the same; only its data is stale.
+ */
+export function publishAccountChanged() {
+  if (typeof localStorage === 'undefined') return
+  try {
+    localStorage.setItem(accountChangedStorageKey, String(Date.now()))
+  } catch {
+    // Blocked storage: other tabs catch up on their next load of the account.
+  }
+}
+
+export function subscribeToAccountChanges(listener: () => void) {
+  if (typeof window === 'undefined') return () => undefined
+
+  const handleStorage = (storageEvent: StorageEvent) => {
+    if (storageEvent.key === accountChangedStorageKey) listener()
   }
 
   window.addEventListener('storage', handleStorage)

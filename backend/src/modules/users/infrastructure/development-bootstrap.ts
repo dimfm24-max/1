@@ -1,13 +1,12 @@
 import {
+  acquirePushTokenUserLock,
   acquireUserAuthenticationAuthorityLock,
   type DbClient,
   userAuthorityTransitionTransactionOptions,
 } from '../../../db'
 import { Prisma } from '../../../generated/prisma/client'
-import { bootstrapAdmin } from './admin-bootstrap'
 
 export type DevelopmentSeedAccounts = {
-  admin: DevelopmentSeedCredentials
   user: DevelopmentSeedCredentials
 }
 
@@ -20,12 +19,10 @@ export async function bootstrapDevelopmentAccounts(
   db: DbClient,
   accounts: DevelopmentSeedAccounts,
 ) {
-  const admin = await bootstrapAdmin(db, accounts.admin)
   const user = await bootstrapDevelopmentUser(db, accounts.user)
 
   return {
-    admin: { email: admin.email, role: 'admin' as const },
-    user: { email: user.email, id: user.id, role: 'user' as const },
+    user: { email: user.email, id: user.id },
   }
 }
 
@@ -36,7 +33,7 @@ async function bootstrapDevelopmentUser(
   for (;;) {
     const existing = await db.user.findUnique({
       where: { email: credentials.email },
-      select: { id: true, passwordHash: true, role: true },
+      select: { id: true, passwordHash: true },
     })
     if (existing) {
       return updateExistingDevelopmentUser(db, existing, credentials)
@@ -47,8 +44,11 @@ async function bootstrapDevelopmentUser(
         data: {
           displayName: 'Development User',
           email: credentials.email,
+          // The seed account has no mailbox; it starts confirmed so nothing waits on a letter.
+          emailVerifiedAt: new Date(),
+          // A demo account that opens straight into the app, not the first-run wizard.
+          onboardingCompletedAt: new Date(),
           passwordHash: await Bun.password.hash(credentials.password, { algorithm: 'argon2id' }),
-          role: 'user',
         },
         select: { email: true, id: true },
       })
@@ -61,12 +61,18 @@ async function bootstrapDevelopmentUser(
 
 async function updateExistingDevelopmentUser(
   db: DbClient,
-  existing: { id: string; passwordHash: string | null; role: string },
+  existing: { id: string; passwordHash: string | null },
   credentials: DevelopmentSeedAccounts['user'],
 ) {
-  if (existing.role !== 'user') {
-    throw new Error(`Development user email ${credentials.email} belongs to an administrator`)
-  }
+  // Seeded before email confirmation existed: confirm it the same way a new seed account is.
+  await db.user.updateMany({
+    where: { id: existing.id, emailVerifiedAt: null },
+    data: { emailVerifiedAt: new Date() },
+  })
+  await db.user.updateMany({
+    where: { id: existing.id, onboardingCompletedAt: null },
+    data: { onboardingCompletedAt: new Date() },
+  })
   if (
     existing.passwordHash !== null &&
     await matchesPassword(credentials.password, existing.passwordHash)
@@ -78,14 +84,12 @@ async function updateExistingDevelopmentUser(
     algorithm: 'argon2id',
   })
   return db.$transaction(async (tx) => {
+    await acquirePushTokenUserLock(tx, existing.id)
     await acquireUserAuthenticationAuthorityLock(tx, existing.id)
     const current = await tx.user.findUniqueOrThrow({
       where: { id: existing.id },
-      select: { passwordHash: true, role: true },
+      select: { passwordHash: true },
     })
-    if (current.role !== 'user') {
-      throw new Error(`Development user email ${credentials.email} belongs to an administrator`)
-    }
     if (
       current.passwordHash !== null &&
       await matchesPassword(credentials.password, current.passwordHash)
@@ -107,6 +111,7 @@ async function updateExistingDevelopmentUser(
       where: { userId: existing.id, usedAt: null },
       data: { usedAt: now },
     })
+    await tx.pushToken.deleteMany({ where: { userId: existing.id } })
     return updated
   }, userAuthorityTransitionTransactionOptions)
 }

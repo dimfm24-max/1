@@ -25,8 +25,10 @@ bun run --cwd backend test:unit -- src/modules/auth/password-reset-cooldown.test
 bun run --cwd backend test:integration -- src/db.integration.test.ts -t "different jobs"
 bun run --cwd backend start:api
 bun run --cwd backend start:worker
+bun run --cwd backend start:worker:notifications
 bun run --cwd backend start:scheduler
 bun run --cwd backend start:cron -- noop
+bun run --cwd backend start:cron -- notifications:process
 bun run --cwd backend smoke:docker
 bun run --cwd backend prisma:validate
 bun run --cwd backend prisma:generate
@@ -40,7 +42,7 @@ bun run --cwd backend db:deploy
 
 `test:unit` и `test:integration` принимают точные найденные пути относительно `backend/` и фильтр имени Bun `-t`. Без фильтров запускается весь набор.
 
-`bun run test:integration` запускает `postgres_test` из `../docker-compose.yml`, применяет миграции к `web_app_demo_test` и выполняет выбранные тесты. Каждый запуск получает отдельный Compose-проект. Блок `finally` удаляет только его сервис, именованный том и сеть, в том числе после частичной ошибки запуска.
+`bun run test:integration` запускает `postgres_test` из `../docker-compose.yml`, применяет миграции к `dilife_test` и выполняет выбранные тесты. Каждый запуск получает отдельный Compose-проект. Блок `finally` удаляет только его сервис, именованный том и сеть, в том числе после частичной ошибки запуска.
 
 - `TEST_KEEP_DOCKER=1` сохраняет эти ресурсы для диагностики.
 - Для внешнего Docker задай вместе `TEST_SKIP_DOCKER=1` и `TEST_DATABASE_URL`. В этом режиме скрипт не меняет Docker-ресурсы.
@@ -54,8 +56,8 @@ bun run --cwd backend db:deploy
 
 | Переменная | Локальный сервис | БД | Пользователь / пароль | Порт |
 | --- | --- | --- | --- | --- |
-| `DATABASE_URL` | `postgres` | `web_app_demo` | `superuser` / `superpassword` | `54329` |
-| `TEST_DATABASE_URL` | `postgres_test` | `web_app_demo_test` | `superuser` / `superpassword` | `54330` при ручном запуске |
+| `DATABASE_URL` | `postgres` | `dilife` | `superuser` / `superpassword` | `54329` |
+| `TEST_DATABASE_URL` | `postgres_test` | `dilife_test` | `superuser` / `superpassword` | `54330` при ручном запуске |
 
 Это публичные локальные значения из [инструкции PostgreSQL](../docs/LOCAL_DATABASE.md). Автоматические тесты могут выбрать порт по репозиторию, чтобы копии проекта не конфликтовали.
 
@@ -63,19 +65,17 @@ bun run --cwd backend db:deploy
 
 Локальный `JWT_SECRET` содержит не менее 32 символов. Production принимает шестнадцатеричный результат `openssl rand -hex 32` длиной от 64 символов. Не используй заглушку `.env.example`, повторяющиеся символы или фразы.
 
-`bun run prisma:seed` создаёт локального администратора и обычного пользователя. Из корня доступна команда `bun run dev:seed`. Нужны пары email/пароль `DEV_SEED_ADMIN_*` и `DEV_SEED_USER_*` в `backend/.env`. Команда запрещает `NODE_ENV=production` и нелокальный URL PostgreSQL.
+`bun run prisma:seed` создаёт локального пользователя. Из корня доступна команда `bun run dev:seed`. Нужна пара email/пароль `DEV_SEED_USER_*` в `backend/.env`. Команда запрещает `NODE_ENV=production` и нелокальный URL PostgreSQL.
 
-При повторе seed сохраняет хеши неизменённых паролей и сессии. Если пароль изменён, команда обновляет Argon2id-хеш и отзывает прежние данные авторизации. Публичные демопароли нельзя использовать в production.
+При повторе seed сохраняет хеши неизменённых паролей, сессии и push-регистрации. Если пароль изменён, команда обновляет Argon2id-хеш и отзывает прежние права auth и push. Публичные демопароли нельзя использовать в production.
 
 Production использует отдельную команду `bun run db:deploy`. Она:
 
 1. До Prisma проверяет владельцев объектов БД.
 2. Применяет миграции и убирает опасные права `PUBLIC` в обоих облаках.
 3. Возвращает отдельной runtime-роли DigitalOcean только DML-права.
-4. При необходимости создаёт первого администратора из пары `ADMIN_SEED_EMAIL` и `ADMIN_SEED_PASSWORD`.
-5. Требует хотя бы одного администратора с паролем для входа.
 
-Пароль первого администратора должен содержать 12–128 символов. Пустые значения, известные заглушки и повторяющиеся шаблоны запрещены. Production не создаёт локального демопользователя.
+Production не создаёт локального демопользователя.
 
 Для локального HTTP подходит `COOKIE_SECURE=false`. Production требует `COOKIE_SECURE=true`, refresh-cookie `SameSite=None; Secure` и точные HTTPS-origin в `CORS_ORIGINS`. Пустые значения, wildcard, HTTP и URL с путём запрещены. В cookie-режиме production операции `register`, `login`, `refresh` и `logout` также требуют доверенный `Origin`.
 
@@ -83,18 +83,20 @@ Production использует отдельную команду `bun run db:de
 
 Общая функция `createEmailDelivery` в `src/email` создаёт доставку для API и `outbox:drain`. `EMAIL_DELIVERY` выбирает `disabled`, `console`, `postbox` или `resend`. Без переменной схема выбирает `disabled`; локальный `.env.example` задаёт `console`, чтобы печатать ссылки сброса. Production запрещает `console`. При `disabled` запрос сброса возвращает обычный общий ответ, но не создаёт токен или задачу. Провайдеры, ошибки и проверки описаны в [docs/EMAIL.md](../docs/EMAIL.md).
 
-Запись через auth и управление своим аккаунтом защищены `AUTH_BODY_LIMIT_BYTES` и лимитом запросов по фиксированным окнам. При `TRUST_PROXY=false` адрес берётся из соединения Bun. За доверенным прокси задай `TRUST_PROXY=true` и его `TRUSTED_PROXY_CLIENT_IP_HEADER`. Используй `TRUSTED_PROXY_CLIENT_IP_POSITION=last` только если провайдер дописывает клиента в конец цепочки. App Platform использует `do-connecting-ip`; описанный путь Yandex — последнее значение `X-Forwarded-For`.
+Auth имеет отдельные лимиты тела и частоты запросов. `AUTH_BODY_LIMIT_BYTES` ограничивает auth. `INGRESS_RATE_LIMIT_PROVIDER=local` включает локальные лимиты фиксированных окон. `yandex-sws` допустим только после замены этих лимитов описанной политикой Smart Web Security на границе сети. При `TRUST_PROXY=false` адрес берётся из соединения Bun. За доверенным прокси задай `TRUST_PROXY=true` и его `TRUSTED_PROXY_CLIENT_IP_HEADER`. Используй `TRUSTED_PROXY_CLIENT_IP_POSITION=last` только если провайдер дописывает клиента в конец цепочки. App Platform использует `do-connecting-ip`; описанный путь Yandex — последнее значение `X-Forwarded-For`.
 
 `RATE_LIMIT_STORE` выбирает счётчики:
 
 - `memory` — таблица одного процесса, до 10 000 ключей. Подходит, когда все запросы принимает один API-процесс.
 - `database` — PostgreSQL, один upsert на ограничиваемый запрос через `src/rate-limit`. Все экземпляры делят лимит. Terraform включает этот режим для Yandex Serverless Containers.
 
-`rate_limit_buckets` хранит адрес клиента или ID пользователя для каждого окна. Это временные персональные данные. Число строк не ограничено, как в memory-режиме. Отработанные окна удаляет `auth:sessions:cleanup` ежедневно в 03:00 UTC. Для `database` обязательно запускай scheduler; без него данные накапливаются. См. [docs/DEPLOYMENT.md](../docs/DEPLOYMENT.md).
+`rate_limit_buckets` хранит адрес клиента или ID пользователя для каждого окна. Это временные персональные данные. Число строк не ограничено, как в memory-режиме. Отработанные окна удаляет auth-очистка в `maintenance:process` каждые 15 минут. Для `database` обязательно запускай scheduler; без него данные накапливаются. См. [docs/DEPLOYMENT.md](../docs/DEPLOYMENT.md).
 
-`REFRESH_TOKEN_TTL_DAYS` задаёт продлеваемый срок refresh-токена. `SESSION_ABSOLUTE_TTL_DAYS` ограничивает весь срок логической сессии. `REFRESH_REUSE_GRACE_SECONDS` допускает краткую гонку refresh, по умолчанию 10 секунд. Повтор предыдущего токена после этого окна отзывает сессию. Не увеличивай окно без необходимости.
+`REFRESH_TOKEN_TTL_DAYS` задаёт продлеваемый срок refresh-токена. `SESSION_ABSOLUTE_TTL_DAYS` ограничивает весь срок логической сессии. `REFRESH_REUSE_GRACE_SECONDS` допускает краткую гонку refresh, по умолчанию 10 секунд. Повтор более старого токена семейства после этого окна отзывает сессию. Не увеличивай окно без необходимости.
 
-Запускай `auth:sessions:cleanup` по расписанию. После `SESSION_RETENTION_DAYS` он удаляет отозванные и просроченные сессии, а также истёкшие токены сброса и окна лимитов.
+Расписание запускает `maintenance:process`. Auth-очистка удаляет отозванные и просроченные сессии после `SESSION_RETENTION_DAYS`, истёкшие токены сброса и окна лимитов. Maintenance также удаляет содержимое завершённых уведомлений и после включения подписок выполняет ограниченную сверку Google Play.
+
+Социальный вход выключен: маршруты и кнопки не подключены. Настраивай Apple/Google ID при включении по [SOCIAL_AUTH.md](../docs/SOCIAL_AUTH.md). Expo Push требует настройки EAS и ключей провайдеров. API регистрирует установки и ставит сообщения в очередь; `notifications:process` или `start:worker:notifications` отправляет их и проверяет receipts. Нативные подписки удалены при установке проекта.
 
 Приватное файловое хранилище включено по умолчанию: `PRIVATE_STORAGE_DRIVER=filesystem`, каталог `backend/.storage`. Само хранилище не требует облака или Docker. Для локального S3 используй `bun run storage:local:start` и драйвер `s3`; он же работает с реальным бакетом. Production запрещает filesystem. Контракт загрузок — в [docs/STORAGE.md](../docs/STORAGE.md).
 
@@ -103,16 +105,26 @@ Production использует отдельную команду `bun run db:de
 У backend одна Prisma-схема и один Dockerfile, но несколько процессов:
 
 - API: `bun run start:api`, файл `src/index.ts`.
-- Задания: общий реестр `src/jobs.ts`. Включены `noop`, `db:ping`, `auth:sessions:cleanup`, `uploads:pending:cleanup` и `outbox:drain`; см. [docs/BACKGROUND_JOBS.md](../docs/BACKGROUND_JOBS.md).
+- Задания: общий реестр `src/jobs.ts`. Включены `noop`, `db:ping`, `auth:sessions:cleanup`, `uploads:pending:cleanup`, `outbox:drain`, `notifications:process` и `maintenance:process`; см. [docs/BACKGROUND_JOBS.md](../docs/BACKGROUND_JOBS.md).
 - Cron: `bun run start:cron -- <job>`, файл `src/cron.ts`. CLI выполняет одно задание и завершается. Yandex запускает тот же исполнитель по HTTP; ошибка задания возвращает non-2xx таймеру.
 - Scheduler: `bun run start:scheduler`, файл `src/scheduler.ts`. Хранит расписание в репозитории. `bun run dev` запускает его рядом с API, поэтому письма уходят без второго терминала.
 - Worker: `bun run start:worker`, файл `src/worker.ts`. Нужен для циклов чаще раза в минуту. По умолчанию пуст; не деплой пустой процесс, иначе он будет постоянно перезапускаться.
 
-`src/job-schedules.json` задаёт outbox каждую минуту, очистку загрузок каждый час и auth ежедневно. Terraform создаёт соответствующий production-исполнитель.
+`src/job-schedules.json` задаёт task outbox и push каждую минуту, очистку загрузок каждый час, общее обслуживание auth/уведомлений каждые 15 минут. Terraform создаёт соответствующий production-исполнитель.
 
-Все процессы используют `src/runtime.ts` для env, Prisma и завершения работы. Не дублируй схему или подключение к БД.
+Все процессы используют `src/runtime.ts` для env, Prisma и завершения работы. Фоновые процессы используют `createBackgroundRuntime`, который не получает ключ подписи API. Не дублируй схему или подключение к БД.
 
 Первичные ключи — UUIDv7, которые создаёт PostgreSQL: `@default(dbgenerated("uuidv7()")) @db.Uuid`. Используй UUIDv7 и для новых ключей, и для ссылок на них. Не вводи `cuid()`, `uuid()`, `serial` или `bigserial`. Для этой схемы везде нужен PostgreSQL 18+, включая raw SQL, импорт и запись без Prisma.
+
+## API push-уведомлений
+
+- `POST /api/notifications/push-token` регистрирует разрешённое поколение установки.
+- `POST /api/notifications/push-token/unregister` оставляет неактивную запись с новым поколением.
+- `POST /api/notifications/test-push` ставит ограниченное тестовое сообщение только при `ENABLE_TEST_PUSH=true`.
+
+Очередь надёжная, доставка через границу отправки/ticket Expo — как минимум один раз. Переходы по ссылкам и эффекты уведомлений должны быть идемпотентными.
+
+`bun run start:worker:notifications` непрерывно обрабатывает push и receipts с корректной отменой при завершении. Минутного задания `notifications:process` достаточно, если меньшая задержка не нужна.
 
 ## Деплой
 
@@ -131,21 +143,34 @@ Production использует отдельную команду `bun run db:de
 - `POST /api/auth/logout`
 - `POST /api/auth/token/register`
 - `POST /api/auth/token/login`
+- `POST /api/auth/token/social/apple` — только при включённом социальном входе
+- `POST /api/auth/token/social/google` — только при включённом социальном входе
 - `POST /api/auth/token/refresh`
 - `POST /api/auth/token/logout`
 - `POST /api/auth/password-reset/request`
 - `POST /api/auth/password-reset/confirm`
 - `PATCH /api/users/me`
-- `GET /api/admin/dashboard`
-- `GET /api/admin/users`
-- `PATCH /api/admin/users/:userId/role`
+- `GET /api/day/context`, `GET /api/day/{date}`
+- `POST /api/day/tasks`, `PATCH|DELETE /api/day/tasks/{taskId}`, `POST /api/day/tasks/{taskId}/resolve`
+- `POST /api/day/tasks/{taskId}/subtasks`, `PATCH|DELETE /api/day/subtasks/{subtaskId}`
+- `PATCH /api/day/settings`, `POST /api/day/categories`, `PATCH|DELETE /api/day/categories/{categoryId}`
+- `POST /api/day/templates`, `POST /api/day/templates/apply`, `POST /api/day/templates/{templateId}/items`
+- `GET|POST /api/habits`, `PATCH|DELETE /api/habits/{habitId}`, `POST /api/habits/{habitId}/marks`
+- `GET /api/statistics`
+- `GET|PATCH /api/share/settings`, `POST /api/share/enable|rotate|disable`, `DELETE /api/share/comments/{commentId}`
+- `GET /api/share/public/{token}`, `POST /api/share/public/{token}/comments` — без сессии
+- `GET|POST /api/notes`, `PATCH|DELETE /api/notes/{noteId}`
+- `GET /api/goals`
+- `PUT /api/goals/life-goal`
+- `POST /api/goals/goals`, `PATCH|DELETE /api/goals/goals/{goalId}`
+- `POST /api/goals/goals/{goalId}/progress|close|reopen|primary`
+- `POST /api/goals/goals/{goalId}/stages`, `PATCH|DELETE /api/goals/stages/{stageId}`
+- `POST /api/goals/stages/{stageId}/steps`, `PATCH|DELETE /api/goals/steps/{stepId}`
 - `GET /openapi.json`
 - `GET /health/live`
 - `GET /health/ready`
 
 `GET /health/live` проверяет только ответ процесса. `GET /health/ready` выполняет `SELECT 1` и возвращает `200` или `503`. Этот маршрут не ограничивает частоту запросов, но объединяет параллельные проверки и хранит результат одну секунду. Изменение доступности БД видно в пределах секунды.
-
-`GET /api/admin/users` имеет отдельный лимит по ID администратора: по умолчанию 120 запросов за 60 секунд через `ADMIN_USERS_READ_RATE_LIMIT_*`. Его делят все сессии и фильтры поиска администратора. Лимит не расходует бюджет изменений аккаунта. Хранилище общее с auth; при `RATE_LIMIT_STORE=database` бюджет един для всех процессов.
 
 Пароли хеширует `Bun.password` через Argon2id. Короткие access JWT создаёт `jose`. Первый refresh-токен случаен. При ротации следующий непрозрачный токен выводится через HMAC с серверным секретом и отдельным доменом. Поэтому конкурентные запросы с одним токеном получают одного преемника. БД хранит только SHA-256-хеши текущего и предыдущего токенов.
 
@@ -159,17 +184,17 @@ Refresh атомарно меняет токен в той же логическ
 
 Ссылка хранит токен во фрагменте URL: он не попадает в первый HTTP-запрос или referrer. Истёкшие токены удаляет auth cleanup. Контракты доставки и повторов — в [EMAIL](../docs/EMAIL.md) и [BACKGROUND_JOBS](../docs/BACKGROUND_JOBS.md).
 
-Новые аккаунты с паролем или социальным входом получают роль `user`; клиент не задаёт роль. `UserDto` содержит текущую роль `user | admin`, access JWT — нет. Каждый авторизованный запрос читает сессию и пользователя из PostgreSQL. Поэтому смена роли действует сразу. Все `/api/admin/*` используют серверную проверку `403 FORBIDDEN`.
+Каждый авторизованный запрос читает сессию и пользователя из PostgreSQL, поэтому отзыв сессии действует сразу. Ролей в продукте нет: все учётные записи равны.
 
 Модуль users управляет профилем, безопасным списком администратору, счётчиками и ролями. Смена роли сериализована в PostgreSQL. Нельзя понизить себя или оставить систему без администратора. При реальной смене роли отзываются все сессии пользователя.
 
-Смена роли, bootstrap и выдача сессии существующему аккаунту используют общую блокировку по пользователю. До записи сессии login повторно читает пользователя и проверяет пароль. Список администратора возвращает только `id`, `email`, `displayName`, `role` и `createdAt`.
+Выдача сессии существующему аккаунту использует блокировку по пользователю. До записи сессии login повторно читает пользователя и проверяет пароль.
 
 ## Архитектура
 
 `src/index.ts` запускает API. `src/runtime.ts` создаёт окружение и Prisma для всех процессов. `src/app.ts` связывает зависимости.
 
-Контексты находятся в `src/modules/<context>` и доступны друг другу только через `index.ts`. Auth управляет входом и текущим пользователем; users — профилями, списком пользователей и политикой ролей.
+Контексты находятся в `src/modules/<context>` и доступны друг другу только через `index.ts`. Auth управляет входом и текущим пользователем; users — профилями.
 
 - `transport`: Hono и HTTP.
 - `application`: сценарии и порты.

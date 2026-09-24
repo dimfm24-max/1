@@ -4,30 +4,36 @@ import {
   cookieLogoutRequestSchema,
   cookieRefreshRequestSchema,
   cookieRefreshResponseSchema,
+  emailVerificationConfirmRequestSchema,
+  emailVerificationConfirmResponseSchema,
+  emailVerificationRequestResponseSchema,
   loginRequestSchema,
   meResponseSchema,
   passwordResetConfirmRequestSchema,
   passwordResetRequestResponseSchema,
   passwordResetRequestSchema,
   registerRequestSchema,
+  socialAuthProviderParamsSchema,
+  socialAuthRequestSchema,
   tokenAuthResponseSchema,
   tokenLogoutRequestSchema,
   tokenRefreshRequestSchema,
   tokenRefreshResponseSchema,
-} from '@web-app-demo/contracts'
+} from '@dilife/contracts'
 import { createRoute, OpenAPIHono } from '@hono/zod-openapi'
 import type { Context, MiddlewareHandler } from 'hono'
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie'
 
 import type { AppEnv } from '../../../env'
 import { AppError, validationErrorHook } from '../../../http/errors'
+import { ingressErrorResponses } from '../../../http/openapi'
 import { clientAddress } from '../../../http/security'
 import type { AuthService } from '../application/auth-service'
 import { userDtoFromPrincipal } from '../domain/user'
 import { executeAuth } from './errors'
 import type { AuthHttpEnv } from './middleware'
 
-const refreshCookieName = 'web_app_demo_refresh'
+const refreshCookieName = 'vibe_refresh'
 const bearerSecurity = [{ BearerAuth: [] }]
 
 const cookieAuthResponseContent = {
@@ -72,11 +78,6 @@ const errorResponseContent = {
   },
 }
 
-const authWriteErrorResponses = {
-  413: { content: errorResponseContent, description: 'Request body is too large' },
-  429: { content: errorResponseContent, description: 'Too many authentication requests' },
-}
-
 const cookieRegisterRoute = createRoute({
   method: 'post',
   path: '/register',
@@ -90,7 +91,7 @@ const cookieRegisterRoute = createRoute({
     },
   },
   responses: {
-    ...authWriteErrorResponses,
+    ...ingressErrorResponses,
     201: {
       content: cookieAuthResponseContent,
       description: 'Created user and browser session',
@@ -117,7 +118,7 @@ const tokenRegisterRoute = createRoute({
     },
   },
   responses: {
-    ...authWriteErrorResponses,
+    ...ingressErrorResponses,
     201: {
       content: tokenAuthResponseContent,
       description: 'Created user and explicit token session',
@@ -140,7 +141,7 @@ const cookieLoginRoute = createRoute({
     },
   },
   responses: {
-    ...authWriteErrorResponses,
+    ...ingressErrorResponses,
     200: {
       content: cookieAuthResponseContent,
       description: 'Created browser session',
@@ -167,13 +168,37 @@ const tokenLoginRoute = createRoute({
     },
   },
   responses: {
-    ...authWriteErrorResponses,
+    ...ingressErrorResponses,
     200: {
       content: tokenAuthResponseContent,
       description: 'Created explicit token session',
     },
     400: { content: errorResponseContent, description: 'Invalid payload' },
     401: { content: errorResponseContent, description: 'Invalid credentials' },
+  },
+})
+
+const tokenSocialAuthRoute = createRoute({
+  method: 'post',
+  path: '/token/social/{provider}',
+  request: {
+    params: socialAuthProviderParamsSchema,
+    body: {
+      content: {
+        'application/json': {
+          schema: socialAuthRequestSchema,
+        },
+      },
+    },
+  },
+  responses: {
+    ...ingressErrorResponses,
+    200: { content: tokenAuthResponseContent, description: 'Created social session' },
+    201: { content: tokenAuthResponseContent, description: 'Created social user and session' },
+    400: { content: errorResponseContent, description: 'Invalid payload' },
+    401: { content: errorResponseContent, description: 'Invalid provider token' },
+    409: { content: errorResponseContent, description: 'Email or provider account already exists' },
+    503: { content: errorResponseContent, description: 'Social auth provider unavailable' },
   },
 })
 
@@ -190,7 +215,7 @@ const cookieRefreshRoute = createRoute({
     },
   },
   responses: {
-    ...authWriteErrorResponses,
+    ...ingressErrorResponses,
     200: {
       content: cookieRefreshResponseContent,
       description: 'Rotated browser session and returned a new access token',
@@ -217,7 +242,7 @@ const tokenRefreshRoute = createRoute({
     },
   },
   responses: {
-    ...authWriteErrorResponses,
+    ...ingressErrorResponses,
     200: {
       content: tokenRefreshResponseContent,
       description: 'Rotated explicit token session',
@@ -250,7 +275,7 @@ const cookieLogoutRoute = createRoute({
     },
   },
   responses: {
-    ...authWriteErrorResponses,
+    ...ingressErrorResponses,
     204: { description: 'Browser session revoked' },
     400: { content: errorResponseContent, description: 'Invalid payload' },
     403: {
@@ -273,7 +298,7 @@ const tokenLogoutRoute = createRoute({
     },
   },
   responses: {
-    ...authWriteErrorResponses,
+    ...ingressErrorResponses,
     204: { description: 'Explicit token session revoked' },
     400: { content: errorResponseContent, description: 'Invalid payload' },
   },
@@ -292,7 +317,7 @@ const passwordResetRequestRoute = createRoute({
     },
   },
   responses: {
-    ...authWriteErrorResponses,
+    ...ingressErrorResponses,
     202: {
       content: passwordResetRequestResponseContent,
       description: 'Password reset request accepted',
@@ -314,11 +339,50 @@ const passwordResetConfirmRoute = createRoute({
     },
   },
   responses: {
-    ...authWriteErrorResponses,
+    ...ingressErrorResponses,
     204: { description: 'Password changed and existing sessions revoked' },
     400: {
       content: errorResponseContent,
       description: 'Invalid payload or reset link',
+    },
+  },
+})
+
+const emailVerificationRequestRoute = createRoute({
+  method: 'post',
+  path: '/email-verification/request',
+  security: bearerSecurity,
+  responses: {
+    ...ingressErrorResponses,
+    202: {
+      content: { 'application/json': { schema: emailVerificationRequestResponseSchema } },
+      description: 'A confirmation letter is queued unless one was sent a moment ago',
+    },
+    401: { content: errorResponseContent, description: 'Invalid access token' },
+  },
+})
+
+const emailVerificationConfirmRoute = createRoute({
+  method: 'post',
+  path: '/email-verification/confirm',
+  request: {
+    body: {
+      content: {
+        'application/json': {
+          schema: emailVerificationConfirmRequestSchema,
+        },
+      },
+    },
+  },
+  responses: {
+    ...ingressErrorResponses,
+    200: {
+      content: { 'application/json': { schema: emailVerificationConfirmResponseSchema } },
+      description: 'The address is confirmed',
+    },
+    400: {
+      content: errorResponseContent,
+      description: 'Invalid payload, or the link is unknown, spent or expired',
     },
   },
 })
@@ -359,6 +423,21 @@ export function createAuthRoutes({ env, requireAuth, service }: CreateAuthRoutes
     return c.json(result, 200)
   })
 
+  // Sign in with Apple / Google is turned off: the route is defined but not mounted.
+  // Uncomment this block and the buttons in the mobile AuthScreen to enable it, then follow
+  // docs/SOCIAL_AUTH.md for the provider credentials.
+  // routes.openapi(tokenSocialAuthRoute, async (c) => {
+  //   const result = await executeAuth(() =>
+  //     service.socialAuth(
+  //       c.req.valid('param').provider,
+  //       c.req.valid('json'),
+  //       requestMetadata(c, env),
+  //     ),
+  //   )
+  //   const { created, ...session } = result
+  //   return c.json(session, created ? 201 : 200)
+  // })
+
   routes.openapi(cookieRefreshRoute, async (c) => {
     const cookieRefreshToken = getRefreshCookie(c)
     assertTrustedCookieOrigin(c, env)
@@ -378,6 +457,11 @@ export function createAuthRoutes({ env, requireAuth, service }: CreateAuthRoutes
   protectedRoutes.openapi(meRoute, async (c) => {
     return c.json({ user: userDtoFromPrincipal(c.var.user) }, 200)
   })
+  protectedRoutes.use('/email-verification/request', requireAuth)
+  protectedRoutes.openapi(emailVerificationRequestRoute, async (c) => {
+    const result = await executeAuth(() => service.requestEmailVerification(c.var.user))
+    return c.json(result, 202)
+  })
   routes.route('/', protectedRoutes)
 
   routes.openapi(cookieLogoutRoute, async (c) => {
@@ -389,7 +473,11 @@ export function createAuthRoutes({ env, requireAuth, service }: CreateAuthRoutes
   })
 
   routes.openapi(tokenLogoutRoute, async (c) => {
-    await executeAuth(() => service.logout(c.req.valid('json').refreshToken))
+    const body = c.req.valid('json')
+    const sessionRevoked = await executeAuth(() =>
+      service.logout(body.refreshToken, logoutExpoPushTokens(body)),
+    )
+    c.header('X-Auth-Session-Revoked', sessionRevoked ? 'true' : 'false')
     return c.body(null, 204)
   })
 
@@ -400,6 +488,14 @@ export function createAuthRoutes({ env, requireAuth, service }: CreateAuthRoutes
     return c.json(result, 202)
   })
 
+  // No session needed: the letter is often opened on a phone where the person is not signed in.
+  routes.openapi(emailVerificationConfirmRoute, async (c) => {
+    const result = await executeAuth(() =>
+      service.confirmEmailVerification(c.req.valid('json')),
+    )
+    return c.json(result, 200)
+  })
+
   routes.openapi(passwordResetConfirmRoute, async (c) => {
     await executeAuth(() => service.confirmPasswordReset(c.req.valid('json')))
     deleteRefreshCookie(c, env)
@@ -407,6 +503,19 @@ export function createAuthRoutes({ env, requireAuth, service }: CreateAuthRoutes
   })
 
   return routes
+}
+
+function logoutExpoPushTokens(input: {
+  expoPushToken?: string
+  expoPushTokens?: string[]
+}) {
+  return [
+    ...new Set(
+      [input.expoPushToken, ...(input.expoPushTokens ?? [])].filter(
+        (token): token is string => Boolean(token),
+      ),
+    ),
+  ]
 }
 
 function requestMetadata(c: Context, env: AppEnv): { userAgent?: string; ipAddress?: string } {

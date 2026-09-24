@@ -567,18 +567,8 @@ const yandexBootstrapCleanupAddresses = [
   'yandex_resourcemanager_folder_iam_member.terraform_state_storage[0]',
 ]
 
-const yandexMigrationSeedCleanupAddresses = [
-  'yandex_lockbox_secret.admin_seed[0]',
-  'yandex_lockbox_secret_version_hashed.admin_seed[0]',
-  'yandex_lockbox_secret_iam_member.admin_seed[0]',
-]
-
 export function safeYandexFoundationDestroyAddresses() {
   return [...yandexFoundationCleanupAddresses]
-}
-
-export function safeYandexMigrationSeedDestroyAddresses() {
-  return [...yandexMigrationSeedCleanupAddresses]
 }
 
 export function safeTerraformOutputs(provider, outputs) {
@@ -807,7 +797,6 @@ export function sanitizedBuildEnvironment(source = process.env) {
     /^AWS_/,
     /^YC_TOKEN$/,
     /^YC_SERVICE_ACCOUNT_KEY_FILE$/,
-    /^ADMIN_SEED_/,
     /^DATABASE_URL$/,
     /(?:^|_)(?:SECRET|TOKEN|PASSWORD|PRIVATE_KEY)(?:_|$)/,
   ]
@@ -1932,8 +1921,6 @@ function planExistingReleaseRoots(context, options) {
     if (runtimeOutputs.runtime_image_digest) {
       const root = writeManagedRootInputs(context, 'runtime', {
         runtime_image_digest: runtimeOutputs.runtime_image_digest,
-        admin_seed_email: null,
-        admin_seed_password: null,
       })
       terraformPlan({
         root,
@@ -1965,17 +1952,12 @@ function planExistingReleaseRoots(context, options) {
   if (migrationOutputs.migration_image_digest) {
     const root = writeManagedRootInputs(context, 'migration', {
       migration_image_digest: migrationOutputs.migration_image_digest,
-      admin_seed_email: null,
-      admin_seed_password: null,
     })
     terraformPlan({
       root,
       env: context.env,
       apply: false,
-      allowedDestroyAddresses: [
-        ...options.allowedDestroyAddresses,
-        ...safeYandexMigrationSeedDestroyAddresses(),
-      ],
+      allowedDestroyAddresses: options.allowedDestroyAddresses,
       label: 'yandex-migration',
     })
   }
@@ -2131,8 +2113,6 @@ export function importReleaseInputs(provider, rootName, options) {
     }
     return {
       runtime_image_digest: digest,
-      admin_seed_email: null,
-      admin_seed_password: null,
     }
   }
   if (provider === 'digitalocean' && rootName === 'static') {
@@ -2162,8 +2142,6 @@ export function importReleaseInputs(provider, rootName, options) {
     }
     return {
       migration_image_digest: digest,
-      admin_seed_email: null,
-      admin_seed_password: null,
     }
   }
   if (provider === 'yandex' && rootName === 'runtime') {
@@ -2485,19 +2463,6 @@ function buildYandexStaticArtifacts(commit, outputs) {
   }
 }
 
-export function seedVariables(source = process.env) {
-  const email = source.ADMIN_SEED_EMAIL?.trim()
-  const password = source.ADMIN_SEED_PASSWORD
-  if (Boolean(email) !== Boolean(password)) {
-    throw new Error(
-      'ADMIN_SEED_EMAIL and ADMIN_SEED_PASSWORD must be supplied together',
-    )
-  }
-  return email && password
-    ? { admin_seed_email: email, admin_seed_password: password }
-    : null
-}
-
 async function invokeYandexMigration(url) {
   if (!url)
     throw new Error(
@@ -2814,7 +2779,6 @@ export async function executePromotionPipeline(
   if (provider === 'yandex') {
     const migration = await runPhase(operations.deployMigration)
     await runPhase(operations.invokeMigration, migration)
-    await runPhase(operations.removeMigrationSeed, migration)
     const runtime = await runPhase(operations.deployRuntime, migration)
     const staticDeployment = await runPhase(operations.publishStatic, runtime)
     await runPhase(operations.verify, { migration, runtime, staticDeployment })
@@ -2828,7 +2792,6 @@ async function release(provider, options) {
   const source = options.dryRun
     ? null
     : assertCleanReleaseSource(context.outputs.release_source, provider)
-  const seed = seedVariables()
   const assertLeaseHeld = () => assertProductionMutationLease(options)
 
   terraformPlan({
@@ -2876,8 +2839,6 @@ async function release(provider, options) {
       async deployRuntime() {
         const runtimeRoot = writeManagedRootInputs(context, 'runtime', {
           runtime_image_digest: digest,
-          admin_seed_email: seed?.admin_seed_email ?? null,
-          admin_seed_password: seed?.admin_seed_password ?? null,
         })
         terraformPlan({
           root: runtimeRoot,
@@ -2888,21 +2849,6 @@ async function release(provider, options) {
         })
         await assertProductionMutationLease(options)
 
-        if (seed) {
-          writeManagedRootInputs(context, 'runtime', {
-            runtime_image_digest: digest,
-            admin_seed_email: null,
-            admin_seed_password: null,
-          })
-          terraformPlan({
-            root: runtimeRoot,
-            env: context.env,
-            apply: true,
-            allowedDestroyAddresses: options.allowedDestroyAddresses,
-            label: 'digitalocean-remove-bootstrap-secret',
-          })
-          await assertProductionMutationLease(options)
-        }
         return terraformOutputs(runtimeRoot, context.env)
       },
       async tightenFoundation(runtimeOutputs) {
@@ -2954,41 +2900,18 @@ async function release(provider, options) {
     async deployMigration() {
       const root = writeManagedRootInputs(context, 'migration', {
         migration_image_digest: digest,
-        admin_seed_email: seed?.admin_seed_email ?? null,
-        admin_seed_password: seed?.admin_seed_password ?? null,
       })
       terraformPlan({
         root,
         env: context.env,
         apply: true,
-        allowedDestroyAddresses: [
-          ...options.allowedDestroyAddresses,
-          ...(seed ? [] : safeYandexMigrationSeedDestroyAddresses()),
-        ],
+        allowedDestroyAddresses: options.allowedDestroyAddresses,
         label: 'yandex-isolated-migration',
       })
       return { root, outputs: terraformOutputs(root, context.env) }
     },
     async invokeMigration(migration) {
       await invokeYandexMigration(migration.outputs.migration_container_url)
-    },
-    async removeMigrationSeed(migration) {
-      if (!seed) return
-      writeManagedRootInputs(context, 'migration', {
-        migration_image_digest: digest,
-        admin_seed_email: null,
-        admin_seed_password: null,
-      })
-      terraformPlan({
-        root: migration.root,
-        env: context.env,
-        apply: true,
-        allowedDestroyAddresses: [
-          ...options.allowedDestroyAddresses,
-          ...safeYandexMigrationSeedDestroyAddresses(),
-        ],
-        label: 'yandex-remove-bootstrap-secret',
-      })
     },
     async deployRuntime() {
       const root = writeManagedRootInputs(context, 'runtime', {

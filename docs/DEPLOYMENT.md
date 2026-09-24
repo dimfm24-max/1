@@ -9,7 +9,7 @@ Production-инфраструктура описана в [infra/README.md](../i
 | Область | DigitalOcean | Yandex Cloud |
 | --- | --- | --- |
 | API | Сервис App Platform | Serverless Container за API Gateway |
-| Задания | Scheduler worker App Platform | Три HTTP-контейнера с таймерами |
+| Задания | Scheduler worker App Platform | Четыре HTTP-контейнера с таймерами |
 | БД | Managed PostgreSQL 18 | Managed Service for PostgreSQL 18 |
 | Статика | App Platform Static Sites | Два публичных website-бакета Object Storage |
 | Файлы пользователей | Приватный Space с версиями | Приватный Object Storage с версиями |
@@ -22,7 +22,7 @@ Production-инфраструктура описана в [infra/README.md](../i
 
 Serverless Containers Yandex масштабируются на несколько процессов. `concurrency` задаёт запросы на экземпляр, а не предел экземпляров. Поэтому Yandex использует `RATE_LIMIT_STORE=database`. Auth/admin-лимиты из `backend/src/http/security.ts` считают в `rate_limit_buckets` через `backend/src/rate-limit`: один upsert на политику, клиента и фиксированное окно.
 
-Так `AUTH_RATE_LIMIT_MAX` и `ADMIN_USERS_READ_RATE_LIMIT_MAX` остаются общими. DigitalOcean с одним процессом использует `memory` без запросов к БД. На своём сервере с несколькими API-процессами также включи `database`. Отработанные окна удаляет `auth:sessions:cleanup`. Причина выбора PostgreSQL вместо Redis — в `docs/ARCHITECTURE.md`.
+Так `AUTH_RATE_LIMIT_MAX` (вход), `API_RATE_LIMIT_MAX` (данные приложения после входа, по умолчанию 600 в минуту) и `ADMIN_USERS_READ_RATE_LIMIT_MAX` остаются общими. DigitalOcean с одним процессом использует `memory` без запросов к БД. На своём сервере с несколькими API-процессами также включи `database`. Отработанные окна удаляет auth-очистка в `maintenance:process`. Причина выбора PostgreSQL вместо Redis — в `docs/ARCHITECTURE.md`.
 
 Облачным путям Ansible не нужен: отдельных хостов для настройки нет. Terraform управляет ресурсами; скрипт релиза — образом, порядком миграции, статикой и проверкой. Ansible может пригодиться на своём сервере.
 
@@ -132,21 +132,12 @@ unset TF_STATE_RECOVERY_ACCESS_KEY_ID TF_STATE_RECOVERY_SECRET_ACCESS_KEY
 bun run infra:plan -- <digitalocean|yandex>
 ```
 
-Для первого релиза передай администратора только через окружение процесса:
+Выполнить релиз:
 
 ```bash
-export ADMIN_SEED_EMAIL='owner@example.com'
-export ADMIN_SEED_PASSWORD='<random one-time password>'
 bun run release -- <digitalocean|yandex> --dry-run
 bun run release -- <digitalocean|yandex>
-unset ADMIN_SEED_EMAIL ADMIN_SEED_PASSWORD
 ```
-
-Скрипт временно пишет seed во входной файл миграции с правами `0600`, затем удаляет его. Yandex создаёт и удаляет отдельный Lockbox-секрет миграции. DigitalOcean убирает переменные PRE_DEPLOY вторым идемпотентным деплоем API.
-
-Для следующих релизов не передавай seed. `db:deploy` проверит наличие администратора с паролем. После прерванного Yandex-релиза следующий запуск удалит три известных seed-ресурса до миграции без старого пароля.
-
-После первого входа сразу смени пароль. Удаление из активного runtime не стирает его из истории деплоев, Lockbox или версий Terraform state.
 
 Перед реальным релизом скрипт читает ветку и GitHub-репозиторий DigitalOcean из применённого state основы, получает upstream и запрещает:
 

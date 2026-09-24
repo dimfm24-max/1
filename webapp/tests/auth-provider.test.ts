@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import type { UserDto } from '@web-app-demo/contracts'
+import type { UserDto } from '@dilife/contracts'
 import { afterEach, beforeEach, expect, test } from 'bun:test'
 import { act, createElement } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
@@ -14,12 +14,13 @@ const user: UserDto = {
   id: 'user_1',
   email: 'user@example.com',
   displayName: null,
-  role: 'user',
   createdAt: '2026-05-11T00:00:00.000Z',
+  emailVerified: true,
 }
 const restoredAccessToken = accessTokenFor('user_1')
 
 const originalFetch = globalThis.fetch
+const originalNavigator = globalThis.navigator
 const mountedRoots: Root[] = []
 
 beforeEach(() => {
@@ -158,11 +159,27 @@ const actEnvironment = globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean; windo
 function installBrowserShim() {
   actEnvironment.IS_REACT_ACT_ENVIRONMENT = true
   actEnvironment.window = browserShim
+  Object.defineProperty(globalThis, 'navigator', {
+    configurable: true,
+    value: {
+      locks: {
+        request: async <T>(
+          _name: string,
+          _options: { mode: 'exclusive' },
+          mutation: () => Promise<T>,
+        ) => mutation(),
+      },
+    },
+  })
 }
 
 function removeBrowserShim() {
   delete actEnvironment.IS_REACT_ACT_ENVIRONMENT
   delete actEnvironment.window
+  Object.defineProperty(globalThis, 'navigator', {
+    configurable: true,
+    value: originalNavigator,
+  })
 }
 
 function createDetachedContainer() {

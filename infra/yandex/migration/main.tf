@@ -1,48 +1,6 @@
 locals {
-  name_prefix = "${var.project_slug}-prod"
-  admin_secret_bindings = var.admin_seed_email == null ? {} : {
-    ADMIN_SEED_EMAIL = {
-      secret_id  = yandex_lockbox_secret.admin_seed[0].id
-      version_id = yandex_lockbox_secret_version_hashed.admin_seed[0].id
-      key        = "ADMIN_SEED_EMAIL"
-    }
-    ADMIN_SEED_PASSWORD = {
-      secret_id  = yandex_lockbox_secret.admin_seed[0].id
-      version_id = yandex_lockbox_secret_version_hashed.admin_seed[0].id
-      key        = "ADMIN_SEED_PASSWORD"
-    }
-  }
-  migration_secret_bindings = merge(
-    var.migration_secret_bindings,
-    local.admin_secret_bindings,
-  )
-}
-
-resource "yandex_lockbox_secret" "admin_seed" {
-  count = var.admin_seed_email == null ? 0 : 1
-
-  folder_id   = var.folder_id
-  name        = "${local.name_prefix}-migration-admin-seed"
-  description = "One-time release secret removed immediately after a successful migration."
-}
-
-resource "yandex_lockbox_secret_version_hashed" "admin_seed" {
-  count = var.admin_seed_email == null ? 0 : 1
-
-  secret_id    = yandex_lockbox_secret.admin_seed[0].id
-  description  = "One-time administrator seed for the current migration."
-  key_1        = "ADMIN_SEED_EMAIL"
-  text_value_1 = var.admin_seed_email
-  key_2        = "ADMIN_SEED_PASSWORD"
-  text_value_2 = var.admin_seed_password
-}
-
-resource "yandex_lockbox_secret_iam_member" "admin_seed" {
-  count = var.admin_seed_email == null ? 0 : 1
-
-  secret_id = yandex_lockbox_secret.admin_seed[0].id
-  role      = "lockbox.payloadViewer"
-  member    = "serviceAccount:${var.migration_service_account}"
+  name_prefix               = "${var.project_slug}-prod"
+  migration_secret_bindings = var.migration_secret_bindings
 }
 
 resource "yandex_serverless_container" "migration" {
@@ -83,6 +41,4 @@ resource "yandex_serverless_container" "migration" {
     gce_http_endpoint    = 2
     aws_v1_http_endpoint = 2
   }
-
-  depends_on = [yandex_lockbox_secret_iam_member.admin_seed]
 }

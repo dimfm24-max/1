@@ -19,14 +19,14 @@ import {
 import { Spinner } from '@/components/ui/spinner'
 import { Typography } from '@/components/typography'
 
-type HomeDestination = '/login' | '/app' | '/admin'
+type HomeDestination = '/login' | '/app'
 
 export function SessionLoadingSection() {
   return (
     <RouteStateCard
-      description="Checking session..."
+      description="Проверяем вход…"
       icon={ShieldUserIcon}
-      title="Loading workspace"
+      title="Открываем DiLife"
     >
       <Spinner />
     </RouteStateCard>
@@ -50,16 +50,18 @@ export function SessionErrorSection({ retry }: { retry: () => Promise<void> }) {
   return (
     <RouteStateCard
       alert
-      description="Your session was not cleared. Check the connection and try again."
+      testId="session-error"
+      description="Ты по-прежнему в аккаунте. Проверь интернет и попробуй ещё раз."
       icon={Alert02Icon}
-      title="Session check is temporarily unavailable"
+      title="Не удалось проверить вход"
     >
       <Button
+        data-testid="session-retry"
         disabled={retryPending}
         onClick={() => void retrySession()}
         type="button"
       >
-        {retryPending ? 'Trying again…' : 'Try again'}
+        {retryPending ? 'Пробуем снова…' : 'Попробовать снова'}
       </Button>
     </RouteStateCard>
   )
@@ -70,15 +72,18 @@ export function NotFoundSection({ destination }: { destination: HomeDestination 
 
   return (
     <RouteStateCard
-      description="The page you requested does not exist or may have moved."
+      description="Такой страницы нет, или она переехала."
       icon={FileNotFoundIcon}
-      title="Page not found"
+      testId="not-found"
+      title="Страница не найдена"
     >
       <Button asChild>
         {authenticated ? (
-          <Link to={destination}>Return to workspace</Link>
+          <Link data-testid="not-found-home" to={destination}>
+            На главную
+          </Link>
         ) : (
-          <Link search={{ returnTo: undefined }} to="/login">Return to sign in</Link>
+          <Link search={{ returnTo: undefined }} to="/login">Ко входу</Link>
         )}
       </Button>
     </RouteStateCard>
@@ -90,17 +95,19 @@ function RouteStateCard({
   children,
   description,
   icon,
+  testId,
   title,
 }: {
   alert?: boolean
   children: ReactNode
   description: string
   icon: IconSvgElement
+  testId?: string
   title: string
 }) {
   return (
     <main className="flex min-h-svh items-center justify-center bg-muted/30 p-5">
-      <Card className="w-full max-w-lg shadow-sm">
+      <Card className="w-full max-w-lg shadow-sm" data-testid={testId}>
         <CardContent>
           <Empty
             aria-live={alert ? 'assertive' : undefined}

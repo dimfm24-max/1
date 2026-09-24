@@ -235,18 +235,6 @@ resource "digitalocean_app" "api" {
         type  = "GENERAL"
       }
 
-      dynamic "env" {
-        for_each = var.admin_seed_email == null ? {} : {
-          ADMIN_SEED_EMAIL    = var.admin_seed_email
-          ADMIN_SEED_PASSWORD = var.admin_seed_password
-        }
-        content {
-          key   = env.key
-          value = env.value
-          scope = "RUN_TIME"
-          type  = "SECRET"
-        }
-      }
     }
   }
 }

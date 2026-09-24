@@ -1,10 +1,10 @@
-# Vibe Coding Template
+# DiLife
 
 <p align="center">
-  <img src="docs/assets/vibe_tmpl_schema.png" alt="Vibe Coding Template architecture diagram" width="100%">
+  <img src="docs/assets/vibe_tmpl_schema.png" alt="DiLife architecture diagram" width="100%">
 </p>
 
-A web product template with a shared backend. The `mobile` branch adds Expo and optional subscriptions, push notifications, and social sign-in to `master`.
+A web and mobile product with a shared backend: Bun/Hono API, React browser app, and an Expo application.
 
 ## Prompt to copy to your agent
 
@@ -30,7 +30,7 @@ Communicate in my language.
 
 ### Rename the project
 
-Search with `rg -n "web_app_demo|web-app-demo|vibecoding-template|Vibe Coding Template"`. Check packages, databases, cookies, Docker and Compose, images, architecture-check aliases, and `webapp/index.html`. Make targeted edits. Regenerate `bun.lock` with the pinned Bun version. Install dependencies. Check types, architecture, and backend integration for the selected applications.
+This project is already named DiLife. To rename it again, search with `rg -n "dilife|DiLife|com.dilife.app"`. Check packages, databases, cookies, Docker and Compose, images, architecture-check aliases, and `webapp/index.html`. Leave the Expo `slug` alone: it is fixed when the expo.dev project is created and cannot be renamed, so changing it here only breaks builds. Make targeted edits. Regenerate `bun.lock` with the pinned Bun version. Install dependencies. Check types, architecture, and backend integration for the selected applications.
 
 ### Hosting and deployment
 
@@ -51,17 +51,17 @@ Define resource sizes and composition in Terraform. Document operating changes i
 | [backend](backend/README.md) | Bun/Hono, Prisma/PostgreSQL, Zod, JWT, OpenAPI |
 | [webapp](webapp/README.md) | React/Vite, TanStack; CSR with registration and sign-in |
 | [website](website/README.md) | Astro; public pages, content, and storefront |
-| [mobile/README.md](mobile/README.md) | Guide to the Expo application on the `mobile` branch |
+| [mobile](mobile/README.md) | Expo Router, token authentication, files, push notifications, social sign-in, Maestro |
 | [packages/contracts](packages/contracts/README.md) | Shared Zod schemas and TypeScript API types |
 
 ## Choose between `webapp` and `website`
 
 - `website`: public pages, SEO, link previews, and catalog. Use Astro SSG by default. Use SSR or hybrid rendering when needed.
-- `webapp`: screens after sign-in, user accounts, administration, and checkout without SEO.
+- `webapp`: screens after sign-in, user accounts, and checkout without SEO.
 
 A marketplace usually needs both. Do not move SEO into CSR or the entire account area into Astro. See [ARCHITECTURE.md](docs/ARCHITECTURE.md#клиенты) for framework selection.
 
-Before work on data, carts, orders, or payments, read [WEB_SURFACES.md](docs/WEB_SURFACES.md). The authenticated webapp and backend own the single browser checkout. Website can pass an anonymous selection. Backend is the data source. Mobile has separate native payments. Store subscriptions are disabled on the `mobile` branch. Add other payment methods according to product needs and platform rules.
+Before work on data, carts, orders, or payments, read [WEB_SURFACES.md](docs/WEB_SURFACES.md). The authenticated webapp and backend own the single browser checkout. Website can pass an anonymous selection. Backend is the data source. Mobile has separate native payments. Store subscriptions were removed during setup. Add payment methods according to product needs and platform rules.
 
 ## Quick start
 
@@ -70,6 +70,8 @@ From the repository root:
 ```bash
 bun install --frozen-lockfile
 ```
+
+On `mobile`, `linker = "isolated"` in `bunfig.toml` separates the React versions used by webapp and Expo. When switching from `hoisted`, remove only the root and workspace `node_modules` directories. Then repeat installation. Keep `bun.lock`.
 
 [Docker Compose](docs/LOCAL_DATABASE.md) is required for backend/API work, full-stack work, files, and database tests. The built-in webapp sign-in also requires the backend, database, and migrations. You can omit them after replacing or removing authentication. Website alone does not need them.
 
@@ -85,14 +87,13 @@ bun run dev:seed
 
 In PowerShell, use `Copy-Item backend/.env.example backend/.env` instead of `cp`. If Docker fails, follow the [instructions for your operating system](docs/LOCAL_DATABASE.md#если-docker-недоступен). Run PostgreSQL through Compose, not a native installation.
 
-The seed uses `DEV_SEED_ADMIN_*` and `DEV_SEED_USER_*` from `backend/.env`. These demo credentials are public and must not be used in production:
+The seed uses `DEV_SEED_USER_*` from `backend/.env`. These demo credentials are public and must not be used in production:
 
-| Role | Email | Password | Page |
-| --- | --- | --- | --- |
-| Administrator | `admin@example.com` | `local-admin-password` | `/admin` |
-| User | `user@example.com` | `local-user-password` | `/app` |
+| Email | Password | Page |
+| --- | --- | --- |
+| `user@example.com` | `local-user-password` | `/app` |
 
-The seed is safe to repeat. It permits only loopback databases and rejects `NODE_ENV=production`. On the `mobile` branch, sign-in and the components screen do not require a subscription. The seed does not grant premium access. Mobile has no admin interface. Deployment uses `db:deploy` with `ADMIN_SEED_*`, not the local seed.
+The seed is safe to repeat. It permits only loopback databases and rejects `NODE_ENV=production`. Deployment uses `db:deploy`, not the local seed.
 
 Start the required applications in separate terminals:
 
@@ -100,9 +101,10 @@ Start the required applications in separate terminals:
 bun run dev:backend
 bun run dev:webapp
 bun run dev:website
+bun run dev:mobile
 ```
 
-To use another API address, set `VITE_API_URL` in `webapp/.env`, for example `http://localhost:3000`.
+To use another API address, set `VITE_API_URL` in `webapp/.env`, for example `http://localhost:3000`. Set `EXPO_PUBLIC_API_URL` in `mobile/.env`. Use `http://10.0.2.2:3000` for Android Emulator and the LAN address for devices and Maestro. Set `EXPO_PUBLIC_E2E=1` only for an E2E Metro session.
 
 The browser origin must match `CORS_ORIGINS` in `backend/.env`. `http://localhost:5173` and `http://127.0.0.1:5173` are different origins. For Vite with `--host 127.0.0.1`, add the second origin and restart the backend. Otherwise, `/api/auth/refresh` returns `CORS Missing Allow Origin` and the session check fails. If you have several project copies, check which copy runs the servers on `3000` and `5173`.
 
@@ -122,7 +124,8 @@ The guides contain details and official sources:
 | Schedules, jobs, and outbox | [BACKGROUND_JOBS.md](docs/BACKGROUND_JOBS.md) |
 | PostgreSQL, test databases, and resets | [LOCAL_DATABASE.md](docs/LOCAL_DATABASE.md) |
 | Email and files | [EMAIL.md](docs/EMAIL.md), [STORAGE.md](docs/STORAGE.md) |
-| Mobile application setup | [mobile/README.md](mobile/README.md) |
+| Apple/Google sign-in | [SOCIAL_AUTH.md](docs/SOCIAL_AUTH.md) |
+| Web app visual style, themes, colors, type, and UI patterns | [DESIGN.md](docs/DESIGN.md) |
 
 ## License
 

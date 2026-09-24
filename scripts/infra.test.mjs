@@ -34,11 +34,9 @@ import {
   renderBackendConfig,
   safeTerraformOutputs,
   safeYandexFoundationDestroyAddresses,
-  safeYandexMigrationSeedDestroyAddresses,
   sanitizedBuildEnvironment,
   safeYandexSecretVersionDestroyAddresses,
   s3CredentialEnvironment,
-  seedVariables,
   stateKeyForRoot,
   stateRecoveryOutputs,
   staticUploadSteps,
@@ -288,23 +286,6 @@ describe('Terraform configuration helpers', () => {
         },
       ],
     }
-    const interruptedSeedCleanupPlan = {
-      resource_changes: [
-        {
-          address: 'yandex_lockbox_secret.admin_seed[0]',
-          change: { actions: ['delete'] },
-        },
-        {
-          address:
-            'yandex_lockbox_secret_version_hashed.admin_seed[0]',
-          change: { actions: ['delete'] },
-        },
-        {
-          address: 'yandex_lockbox_secret_iam_member.admin_seed[0]',
-          change: { actions: ['delete'] },
-        },
-      ],
-    }
 
     expect(
       planSafetyProblems(
@@ -312,19 +293,8 @@ describe('Terraform configuration helpers', () => {
         safeYandexFoundationDestroyAddresses(),
       ),
     ).toEqual([])
-    expect(
-      planSafetyProblems(
-        interruptedSeedCleanupPlan,
-        safeYandexMigrationSeedDestroyAddresses(),
-      ),
-    ).toEqual([])
     expect(safeYandexFoundationDestroyAddresses()).toEqual([
       'yandex_resourcemanager_folder_iam_member.storage_manager[0]',
-    ])
-    expect(safeYandexMigrationSeedDestroyAddresses()).toEqual([
-      'yandex_lockbox_secret.admin_seed[0]',
-      'yandex_lockbox_secret_version_hashed.admin_seed[0]',
-      'yandex_lockbox_secret_iam_member.admin_seed[0]',
     ])
   })
 
@@ -1127,7 +1097,6 @@ describe('release safety', () => {
           yandexEvents.push('invoke-migration')
           throw new Error('migration failed')
         },
-        removeMigrationSeed: async () => yandexEvents.push('remove-seed'),
         deployRuntime: async () => yandexEvents.push('runtime'),
         publishStatic: async () => yandexEvents.push('static'),
         verify: async () => yandexEvents.push('verify'),
@@ -1142,8 +1111,6 @@ describe('release safety', () => {
         return { url: 'migration-url' }
       },
       invokeMigration: async () => successfulYandexEvents.push('migration-ok'),
-      removeMigrationSeed: async () =>
-        successfulYandexEvents.push('remove-seed'),
       deployRuntime: async () => {
         successfulYandexEvents.push('runtime')
         return { api_url: 'https://api.example.com' }
@@ -1154,7 +1121,6 @@ describe('release safety', () => {
     expect(successfulYandexEvents).toEqual([
       'migration-revision',
       'migration-ok',
-      'remove-seed',
       'runtime',
       'static',
       'verify',
@@ -1422,28 +1388,12 @@ describe('release safety', () => {
         SPACES_SECRET_ACCESS_KEY: 'spaces-secret',
         AWS_SECRET_ACCESS_KEY: 'aws-secret',
         YC_TOKEN: 'yc-secret',
-        ADMIN_SEED_PASSWORD: 'seed-secret',
         DATABASE_URL: 'database-url',
         JWT_SECRET: 'jwt-secret',
       }),
     ).toEqual({ PATH: '/tools', HOME: '/home/builder' })
   })
 
-  test('accepts an administrator bootstrap pair but refuses a partial secret', () => {
-    expect(
-      seedVariables({
-        ADMIN_SEED_EMAIL: ' owner@example.com ',
-        ADMIN_SEED_PASSWORD: 'one-time-password',
-      }),
-    ).toEqual({
-      admin_seed_email: 'owner@example.com',
-      admin_seed_password: 'one-time-password',
-    })
-    expect(seedVariables({})).toBeNull()
-    expect(() =>
-      seedVariables({ ADMIN_SEED_EMAIL: 'owner@example.com' }),
-    ).toThrow('must be supplied together')
-  })
 })
 
 describe('Yandex static publishing', () => {

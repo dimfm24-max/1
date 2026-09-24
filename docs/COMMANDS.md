@@ -7,7 +7,7 @@
 | Команда | Результат |
 | --- | --- |
 | `dev` | Все приложения параллельно, включая scheduler |
-| `dev:backend`, `dev:webapp`, `dev:website` | Одно приложение |
+| `dev:backend`, `dev:webapp`, `dev:website`, `dev:mobile` | Одно приложение |
 | `storybook:webapp`, `storybook:website` | Каталоги компонентов на `6006` / `6007` |
 | `storybook:build`, `storybook:build:webapp`, `storybook:build:website` | Оба каталога или один |
 | `build` | Production build/typecheck/export, где скрипты заданы |
@@ -23,18 +23,20 @@
 | --- | --- |
 | `check` | [Полный локальный прогон](../README.md#checks) |
 | `template:check` | Опрос, реестр возможностей, правила агентов, Markdown-ссылки и якоря |
-| `typecheck`, `lint`, `architecture:check` | Типы всех проектов; ESLint webapp; границы модулей |
+| `typecheck`, `lint`, `architecture:check` | Типы всех проектов; ESLint webapp/mobile; границы модулей |
 | `audit` | Зависимости; ошибка при непроверенной уязвимости; нужен реестр пакетов |
-| `test` | Infra, contracts, backend, webapp, website; нужен Docker |
+| `test` | Infra, contracts, backend, webapp, website, mobile; нужен Docker |
 | `test:terraform` | Все Terraform-корни; нужен CLI; вне `check` |
 | `test:infra`, `test:contracts` | Защита инфраструктуры без изменений облака; Zod-контракты |
 | `test:backend` | Unit и integration |
 | `test:backend:integration` | PostgreSQL; фильтр: путь относительно backend и `-t "name"` |
-| `test:webapp`, `test:website` | Клиенты; без записи сборок |
+| `test:webapp`, `test:website`, `test:mobile` | Клиенты; без записи сборок |
 | `test:build-contracts` | Собирает webapp/website; проверяет CSS без story-утилит и отдельный ленивый hero-chunk |
 | `test:storage:s3` | Контракт с настоящим локальным S3; нужен Docker |
 | `e2e:webapp` | Playwright, backend, Vite; фильтр: spec и `-g "name"` |
 | `e2e:webapp:s3` | Аватар с локальным S3 |
+| `e2e:mobile` | Maestro; нужны Expo development build и Metro |
+| `--cwd mobile e2e:maestro:audit` | Правила сценариев и параметров запуска |
 
 Из тестовых скриптов только `test:build-contracts` собирает приложения.
 
@@ -45,11 +47,12 @@
 | Команда | Действие |
 | --- | --- |
 | `prisma:migrate`, `prisma:deploy` | Создать и применить миграцию в разработке; применить готовые миграции |
-| `db:deploy` | Миграции релиза, первый администратор при необходимости, проверка его входа |
+| `db:deploy` | Миграции релиза и права БД |
 | `db:adopt-owner` | Просмотр владельцев объектов старой БД; `-- --apply` — только после проверки и подтверждения по инструкции |
 | `start:cron -- <job>` | Один запуск задания, например `outbox:drain` |
-| `start:scheduler` | `job-schedules.json`: outbox каждую минуту, загрузки каждый час, auth ежедневно в 03:00 UTC |
+| `start:scheduler` | `job-schedules.json`: outbox/push каждую минуту, загрузки каждый час, maintenance каждые 15 минут |
 | `start:worker` | Циклические задачи; пуст, пока они не добавлены |
+| `start:worker:notifications` | Постоянный Expo Push worker для задержки меньше минуты |
 
 `bun run dev:seed` создаёт или обновляет локальные демоаккаунты. Задания описаны в [BACKGROUND_JOBS.md](BACKGROUND_JOBS.md).
 

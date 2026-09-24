@@ -24,11 +24,12 @@ const repositoryRoot = resolve(backendRoot, '..')
  * several times each and cross a Docker network: 0.3-0.6 s idle, and past 5 s on a saturated
  * machine. A test that times out does not fail cleanly either - bun lets its body run on into the
  * next test's cleanup, so the failure is reported against an unrelated later assertion. The budget
- * is longer than the request-path transaction timeouts in `src/db.ts` (15 s and 20 s), so a lock
- * held too long is still reported through the request that held it - Prisma expires that
- * transaction and the request answers 500 - rather than by the harness as a bare timeout.
+ * is longer than the request-path transaction timeouts in `src/db.ts` (including the 140 s
+ * authentication budget needed while a push provider fence is admitted), so a lock held too long
+ * is still reported through the request that held it - Prisma expires that transaction and the
+ * request answers 500 - rather than by the harness as a bare timeout.
  */
-export const integrationTestTimeoutMs = 30_000
+export const integrationTestTimeoutMs = 3 * 60 * 1000
 
 class CommandFailure extends Error {
   constructor(command, args, exitCode) {
@@ -97,7 +98,7 @@ export async function runBackendIntegration({
           '-U',
           'superuser',
           '-d',
-          'web_app_demo_test',
+          'dilife_test',
         ],
         {
           cwd: repositoryRoot,

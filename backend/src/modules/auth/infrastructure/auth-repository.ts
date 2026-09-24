@@ -1,4 +1,5 @@
 import {
+  acquirePushTokenUserLock,
   acquireUserAuthenticationAuthorityLock,
   type DbClient,
   userAuthenticationSessionTransactionOptions,
@@ -14,6 +15,10 @@ export function createPrismaAuthRepository(db: DbClient): AuthRepository {
       return db.user.findUnique({ where: { email } })
     },
 
+    findUserById(id) {
+      return db.user.findUnique({ where: { id } })
+    },
+
     async createPasswordUserWithSession(input) {
       try {
         return await db.$transaction(async (tx) => {
@@ -22,7 +27,6 @@ export function createPrismaAuthRepository(db: DbClient): AuthRepository {
               email: input.user.email,
               passwordHash: input.user.passwordHash,
               displayName: input.user.displayName,
-              role: 'user',
             },
           })
           const session = await tx.authSession.create({
@@ -36,6 +40,9 @@ export function createPrismaAuthRepository(db: DbClient): AuthRepository {
             },
             select: { id: true },
           })
+          await input.queueVerification?.(user.id, async (task) => {
+            await enqueueTask(tx, task)
+          })
 
           return { user, session }
         })
@@ -44,6 +51,51 @@ export function createPrismaAuthRepository(db: DbClient): AuthRepository {
           throw new AuthFailure('email_already_exists', 'User with this email already exists')
         }
         throw error
+      }
+    },
+
+    findUserByProviderSubject(provider, subject) {
+      return provider === 'apple'
+        ? db.user.findUnique({ where: { appleSubject: subject } })
+        : db.user.findUnique({ where: { googleSubject: subject } })
+    },
+
+    async createSocialUser(input) {
+      try {
+        return {
+          created: true,
+          user: await db.user.create({
+            data: {
+              displayName: input.displayName,
+              email: input.email,
+              // The provider has already proven the address.
+              emailVerifiedAt: new Date(),
+              passwordHash: null,
+              ...(input.provider === 'apple'
+                ? { appleSubject: input.subject }
+                : { googleSubject: input.subject }),
+            },
+          }),
+        }
+      } catch (error) {
+        if (!isUniqueConstraintError(error)) throw error
+
+        const existing =
+          input.provider === 'apple'
+            ? await db.user.findUnique({ where: { appleSubject: input.subject } })
+            : await db.user.findUnique({ where: { googleSubject: input.subject } })
+        if (existing) return { created: false, user: existing }
+
+        if (isProviderSubjectUniqueConstraint(error)) {
+          throw new AuthFailure(
+            'provider_account_already_linked',
+            `${input.provider === 'apple' ? 'Apple' : 'Google'} account is already linked`,
+          )
+        }
+        throw new AuthFailure(
+          'social_email_already_exists',
+          'An account with this email already exists',
+        )
       }
     },
 
@@ -153,10 +205,26 @@ export function createPrismaAuthRepository(db: DbClient): AuthRepository {
     },
 
     revokeSessionById(input) {
-      return db.authSession.updateMany({
-        where: { id: input.sessionId, revokedAt: null },
-        data: { revokedAt: input.now },
-      }).then(({ count }) => count === 1)
+      return db.$transaction(async (tx) => {
+        const session = await tx.authSession.findUnique({
+          where: { id: input.sessionId },
+          select: { userId: true },
+        })
+        if (!session) return false
+
+        await acquirePushTokenUserLock(tx, session.userId)
+        const revoked = await tx.authSession.updateMany({
+          where: { id: input.sessionId, revokedAt: null },
+          data: { revokedAt: input.now },
+        })
+        await tx.pushToken.deleteMany({
+          where: {
+            registrationSessionId: input.sessionId,
+            userId: session.userId,
+          },
+        })
+        return revoked.count === 1
+      })
     },
 
     findActiveAccessSession(input) {
@@ -172,7 +240,7 @@ export function createPrismaAuthRepository(db: DbClient): AuthRepository {
       })
     },
 
-    revokeSession(input) {
+    revokeSession(input, cleanup) {
       return db.$transaction(async (tx) => {
         const session = await tx.authSession.findFirst({
           where: {
@@ -182,10 +250,30 @@ export function createPrismaAuthRepository(db: DbClient): AuthRepository {
               { refreshTokenFamilyHash: input.refreshTokenFamilyHash },
             ],
             revokedAt: null,
+            expiresAt: { gt: input.now },
           },
           select: { id: true, userId: true },
         })
         if (!session) return null
+
+        await acquirePushTokenUserLock(tx, session.userId)
+        await cleanup({
+          expoPushTokens: input.expoPushTokens,
+          store: {
+            async removePushTokens(userId, expoPushTokens) {
+              const ownership: Prisma.PushTokenWhereInput[] = [
+                { registrationSessionId: session.id },
+              ]
+              if (expoPushTokens.length > 0) {
+                ownership.push({ expoPushToken: { in: expoPushTokens } })
+              }
+              await tx.pushToken.deleteMany({
+                where: { OR: ownership, userId },
+              })
+            },
+          },
+          userId: session.userId,
+        })
 
         const revoked = await tx.authSession.updateMany({
           where: { id: session.id, revokedAt: null },
@@ -241,6 +329,61 @@ export function createPrismaAuthRepository(db: DbClient): AuthRepository {
       return token !== null
     },
 
+    createEmailVerificationToken(input) {
+      return db.$transaction(async (tx) => {
+        await acquireUserAuthenticationAuthorityLock(tx, input.userId)
+        const recentToken = await tx.emailVerificationToken.findFirst({
+          where: { userId: input.userId, createdAt: { gte: input.createdAfter } },
+          select: { id: true },
+        })
+        if (recentToken) return false
+
+        // Only the newest letter works: an older link could have been forwarded or leaked.
+        await tx.emailVerificationToken.updateMany({
+          where: { userId: input.userId, usedAt: null },
+          data: { usedAt: input.now },
+        })
+        await tx.emailVerificationToken.create({
+          data: { userId: input.userId, tokenHash: input.tokenHash, expiresAt: input.expiresAt },
+        })
+        return true
+      }, userAuthenticationSessionTransactionOptions)
+    },
+
+    async invalidateEmailVerificationToken(input) {
+      await db.emailVerificationToken.updateMany({
+        where: { tokenHash: input.tokenHash, usedAt: null },
+        data: { usedAt: input.now },
+      })
+    },
+
+    completeEmailVerification(input) {
+      return db.$transaction(async (tx) => {
+        // Spending the token is the guard: of two clicks at once, one update finds it unused.
+        const token = await tx.emailVerificationToken.findUnique({
+          where: { tokenHash: input.tokenHash },
+          select: { userId: true },
+        })
+        if (!token) return false
+
+        const spent = await tx.emailVerificationToken.updateMany({
+          where: { tokenHash: input.tokenHash, usedAt: null, expiresAt: { gt: input.now } },
+          data: { usedAt: input.now },
+        })
+        if (spent.count !== 1) return false
+
+        await tx.emailVerificationToken.updateMany({
+          where: { userId: token.userId, usedAt: null },
+          data: { usedAt: input.now },
+        })
+        await tx.user.updateMany({
+          where: { id: token.userId, emailVerifiedAt: null },
+          data: { emailVerifiedAt: input.now },
+        })
+        return true
+      })
+    },
+
     completePasswordReset(input) {
       return db.$transaction(async (tx) => {
         const candidate = await tx.passwordResetToken.findFirst({
@@ -269,6 +412,16 @@ export function createPrismaAuthRepository(db: DbClient): AuthRepository {
           where: { id: candidate.userId },
           data: { passwordHash: input.passwordHash },
         })
+        // The reset letter reached this address, so the address is proven. This also rescues
+        // the real owner when someone else registered with their address first.
+        await tx.user.updateMany({
+          where: { id: candidate.userId, emailVerifiedAt: null },
+          data: { emailVerifiedAt: input.now },
+        })
+        await tx.emailVerificationToken.updateMany({
+          where: { userId: candidate.userId, usedAt: null },
+          data: { usedAt: input.now },
+        })
         await tx.passwordResetToken.updateMany({
           where: { userId: candidate.userId, usedAt: null },
           data: { usedAt: input.now },
@@ -291,6 +444,23 @@ export function createPrismaAuthRepository(db: DbClient): AuthRepository {
   }
 }
 
-function isUniqueConstraintError(error: unknown) {
+function isUniqueConstraintError(
+  error: unknown,
+): error is Prisma.PrismaClientKnownRequestError {
   return error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002'
+}
+
+function isProviderSubjectUniqueConstraint(error: Prisma.PrismaClientKnownRequestError) {
+  const target = error.meta?.target
+  const fields = Array.isArray(target) ? target : typeof target === 'string' ? [target] : []
+  return fields.some((field) =>
+    [
+      'appleSubject',
+      'googleSubject',
+      'apple_subject',
+      'google_subject',
+      'users_apple_subject_key',
+      'users_google_subject_key',
+    ].includes(String(field)),
+  )
 }

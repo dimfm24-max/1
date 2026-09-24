@@ -1,0 +1,136 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id                      String                   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  email                   String                   @unique
+  passwordHash            String?                  @map("password_hash")
+  displayName             String?                  @map("display_name")
+  appleSubject            String?                  @unique @map("apple_subject")
+  googleSubject           String?                  @unique @map("google_subject")
+  /// When the person proved they own the address: by the link from the confirmation email, by a
+  /// completed password reset, or by a sign-in provider that vouches for it. Null until then.
+  emailVerifiedAt         DateTime?                @map("email_verified_at")
+  /// When the first-run wizard was finished (task 07). Null sends every /app address to it.
+  onboardingCompletedAt   DateTime?                @map("onboarding_completed_at")
+  createdAt               DateTime                 @default(now()) @map("created_at")
+  updatedAt               DateTime                 @updatedAt @map("updated_at")
+  sessions                AuthSession[]
+
+  // Push delivery tables; remove together with prisma/schema/notifications.prisma.
+  pushInstallations       PushInstallation[]
+  pushTokens              PushToken[]
+  pushNotificationOutbox  PushNotificationOutbox[]
+  pushDeliveries          PushDelivery[]
+  passwordResetTokens PasswordResetToken[]
+  emailVerificationTokens EmailVerificationToken[]
+  avatars             UserAvatar[]
+
+  // Goal tree; remove together with prisma/schema/goals.prisma.
+  lifeGoal            LifeGoal?
+  goals               Goal[]
+  goalStages          GoalStage[]
+  goalSteps           GoalStep[]
+  goalProgressEntries GoalProgressEntry[]
+
+  // Settings; remove together with prisma/schema/settings.prisma.
+  settings            UserSettings?
+
+  // The day; remove together with prisma/schema/day.prisma.
+  taskCategories      TaskCategory[]
+  tasks               Task[]
+  taskSubtasks        TaskSubtask[]
+  dayTemplates        DayTemplate[]
+  dayProfile          DayProfile?
+  taskSeries          TaskSeries[]
+  dayTemplateApplications DayTemplateApplication[]
+  dayTemplateItems    DayTemplateItem[]
+
+  // Habits; remove together with prisma/schema/habits.prisma.
+  habits              Habit[]
+  habitMarks          HabitMark[]
+
+  // Notes; remove together with prisma/schema/notes.prisma.
+  notes               Note[]
+
+  // Public sharing; remove together with prisma/schema/sharing.prisma.
+  shareLink           ShareLink?
+
+  @@map("users")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @unique(map: "password_reset_tokens_token_hash_key") @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade, map: "password_reset_tokens_user_id_fkey")
+
+  @@index([userId, createdAt], map: "password_reset_tokens_user_id_created_at_idx")
+  @@index([expiresAt], map: "password_reset_tokens_expires_at_idx")
+  @@map("password_reset_tokens")
+}
+
+/// A link from the "confirm your email" letter. Only the hash is stored, as with password resets.
+model EmailVerificationToken {
+  id        String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([expiresAt])
+  @@map("email_verification_tokens")
+}
+
+model AuthSession {
+  id                       String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  userId                   String    @map("user_id") @db.Uuid
+  refreshTokenHash         String    @unique(map: "auth_sessions_refresh_token_hash_key") @map("refresh_token_hash")
+  refreshTokenFamilyHash   String?   @unique(map: "auth_sessions_refresh_token_family_hash_key") @map("refresh_token_family_hash")
+  previousRefreshTokenHash String?   @unique(map: "auth_sessions_previous_refresh_token_hash_key") @map("previous_refresh_token_hash")
+  refreshRotatedAt         DateTime? @map("refresh_rotated_at")
+  expiresAt                DateTime  @map("expires_at")
+  revokedAt                DateTime? @map("revoked_at")
+  userAgent                String?   @map("user_agent")
+  ipAddress                String?   @map("ip_address")
+  createdAt                DateTime  @default(now()) @map("created_at")
+  updatedAt                DateTime  @updatedAt @map("updated_at")
+  user                     User      @relation(fields: [userId], references: [id], onDelete: Cascade, map: "auth_sessions_user_id_fkey")
+
+  @@index([userId], map: "auth_sessions_user_id_idx")
+  @@index([expiresAt], map: "auth_sessions_expires_at_idx")
+  @@map("auth_sessions")
+}
+
+/// One counter per policy, client key and clock-aligned window, bumped by a single upsert per
+/// limited request when RATE_LIMIT_STORE=database (backend/src/rate-limit/database-store.ts).
+/// A row is only ever reached through its own key and referenced by nothing, so the natural key
+/// is the primary key: a surrogate UUID would add a second index to every auth request and point
+/// at nothing. The auth cleanup inside `maintenance:process` deletes rows past `expires_at`.
+model RateLimitBucket {
+  /// Which budget the row belongs to. Validated in code (backend/src/rate-limit/port.ts), not by
+  /// a database enum, so adding a policy stays a code change.
+  policy      String
+  /// The client's identity under that policy: an address for auth, a user id for admin reads.
+  key         String
+  windowStart DateTime @map("window_start")
+  count       Int
+  /// When the window ends. Stored next to the count so the sweeper needs no idea of window sizes.
+  expiresAt   DateTime @map("expires_at")
+
+  @@id([policy, key, windowStart], map: "rate_limit_buckets_pkey")
+  @@index([expiresAt], map: "rate_limit_buckets_expires_at_idx")
+  @@map("rate_limit_buckets")
+}

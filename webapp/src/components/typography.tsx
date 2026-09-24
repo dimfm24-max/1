@@ -7,6 +7,11 @@ import { cn } from "@/lib/utils"
 const typographyVariants = cva("min-w-0 tracking-normal", {
   variants: {
     variant: {
+      display: "font-heading text-3xl leading-tight font-extrabold tracking-tight md:text-4xl",
+      metric: "font-heading text-6xl leading-none font-extrabold tracking-tight tabular-nums",
+      metricSm: "font-heading text-4xl leading-none font-extrabold tracking-tight tabular-nums",
+      eyebrow: "text-xs leading-normal font-bold tracking-widest uppercase",
+      brand: "font-heading text-xl leading-none font-extrabold tracking-tight whitespace-nowrap",
       h1: "font-heading text-4xl leading-tight font-semibold",
       h2: "font-heading text-3xl leading-tight font-semibold",
       h3: "font-heading text-2xl leading-snug font-semibold",
@@ -19,6 +24,8 @@ const typographyVariants = cva("min-w-0 tracking-normal", {
       bodyXs: "text-xs leading-normal font-normal",
       bodySmMedium: "text-sm leading-normal font-medium",
       emphasis: "font-medium",
+      bubble: "text-sm leading-relaxed font-normal",
+      captionMedium: "text-xs leading-normal font-medium",
       label: "text-sm leading-normal font-medium",
       control: "text-sm leading-normal font-medium whitespace-nowrap",
       controlXs: "text-xs leading-normal font-medium whitespace-nowrap",
@@ -31,6 +38,8 @@ const typographyVariants = cva("min-w-0 tracking-normal", {
       avatar: "text-sm leading-normal font-normal group-data-[size=sm]/avatar:text-xs",
       avatarCount:
         "text-sm leading-normal font-normal group-has-data-[size=sm]/avatar-group:text-xs",
+      attachmentTitle:
+        "text-sm leading-normal font-medium group-data-[size=sm]/attachment:text-xs group-data-[size=xs]/attachment:text-xs",
       calendar:
         "text-sm leading-normal font-normal [&_.rdp-caption_label]:text-sm [&_.rdp-caption_label]:font-medium [&_.rdp-dropdowns]:text-sm [&_.rdp-dropdowns]:font-medium [&_.rdp-week_number]:text-[0.8rem] [&_.rdp-weekday]:text-[0.8rem] [&_.rdp-weekday]:font-normal",
       calendarDay:
@@ -81,6 +90,11 @@ type TypographyVariant = NonNullable<
 >
 
 const defaultElementByVariant: Record<TypographyVariant, React.ElementType> = {
+  display: "h1",
+  metric: "span",
+  metricSm: "span",
+  eyebrow: "span",
+  brand: "span",
   h1: "h1",
   h2: "h2",
   h3: "h3",
@@ -93,6 +107,8 @@ const defaultElementByVariant: Record<TypographyVariant, React.ElementType> = {
   bodyXs: "p",
   bodySmMedium: "p",
   emphasis: "strong",
+  bubble: "span",
+  captionMedium: "span",
   label: "span",
   control: "span",
   controlXs: "span",
@@ -103,6 +119,7 @@ const defaultElementByVariant: Record<TypographyVariant, React.ElementType> = {
   code: "code",
   avatar: "span",
   avatarCount: "span",
+  attachmentTitle: "span",
   calendar: "div",
   calendarDay: "span",
   commandGroup: "div",

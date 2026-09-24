@@ -1,5 +1,5 @@
 {
-  "name": "@web-app-demo/backend",
+  "name": "@dilife/backend",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -8,7 +8,7 @@
     "start": "bun run start:api",
     "start:api": "bun run prisma:generate && bun src/index.ts",
     "start:worker": "bun src/worker.ts",
-    "start:scheduler": "bun src/scheduler.ts",
+    "start:worker:notifications": "bun src/worker.ts notifications",
     "start:cron": "bun src/cron.ts",
     "start:raw": "bun src/index.ts",
     "build": "bun run prisma:generate && tsc --noEmit",
@@ -26,9 +26,11 @@
     "prisma:seed": "prisma db seed",
     "db:deploy": "bun scripts/deploy-database.ts",
     "db:adopt-owner": "bun scripts/adopt-database-owner.ts",
-    "prisma:validate": "prisma validate"
+    "prisma:validate": "prisma validate",
+    "start:scheduler": "bun src/scheduler.ts"
   },
   "dependencies": {
+    "@apple/app-store-server-library": "^3.1.0",
     "@aws-sdk/client-s3": "^3.1101.0",
     "@aws-sdk/s3-request-presigner": "^3.1101.0",
     "@hono/zod-openapi": "^1.4.0",
@@ -36,9 +38,10 @@
     "@prisma/adapter-pg": "7.9.0",
     "@prisma/client": "7.9.0",
     "@smithy/signature-v4": "^5.6.5",
-    "@web-app-demo/contracts": "workspace:*",
+    "@dilife/contracts": "workspace:*",
     "croner": "^10.0.1",
     "dotenv": "^17.4.2",
+    "google-auth-library": "^10.9.1",
     "hono": "^4.12.34",
     "jose": "^6.2.7",
     "pg": "^8.20.0",

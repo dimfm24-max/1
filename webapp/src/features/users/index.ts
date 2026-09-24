@@ -1,2 +1,3 @@
 export { ProfilePanel } from './ProfilePanel'
-export { UserHome, UserProfile, UserSettings } from './pages'
+export { ProfileSettings } from './pages'
+export { useCompleteOnboardingMutation } from './queries'

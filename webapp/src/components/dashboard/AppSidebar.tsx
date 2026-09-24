@@ -1,9 +1,9 @@
-import type { UserDto } from '@web-app-demo/contracts'
+import { Stairs01Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 
 import {
   Sidebar,
   SidebarContent,
-  SidebarFooter,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
@@ -14,59 +14,44 @@ import { Typography } from '@/components/typography'
 import type { WorkspaceRoutePath } from '@/features/navigation'
 import { DashboardLink } from './DashboardLink'
 import { NavMain, type DashboardNavigationItem } from './NavMain'
-import { NavUser } from './NavUser'
 
 export function AppSidebar({
-  accountPath,
   homePath,
   items,
-  onLogout,
-  settingsPath,
-  user,
-  workspaceLabel,
+  serviceItems,
 }: {
-  accountPath?: WorkspaceRoutePath
   homePath: WorkspaceRoutePath
   items: ReadonlyArray<DashboardNavigationItem>
-  onLogout: () => Promise<void>
-  settingsPath: WorkspaceRoutePath
-  user: UserDto
-  workspaceLabel: string
+  serviceItems: ReadonlyArray<DashboardNavigationItem>
 }) {
   return (
-    <Sidebar collapsible="icon" variant="inset">
-      <SidebarHeader>
+    <Sidebar collapsible="icon" variant="sidebar">
+      <SidebarHeader className="pt-4">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild size="lg" tooltip="web_app_demo">
+            <SidebarMenuButton asChild size="lg" tooltip="DiLife">
               <DashboardLink to={homePath}>
-                <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                  <Typography variant="control">W</Typography>
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+                  <HugeiconsIcon className="size-5!" icon={Stairs01Icon} strokeWidth={2.2} />
                 </span>
-                <span className="grid min-w-0 gap-0.5 group-data-[collapsible=icon]:hidden">
-                  <Typography variant="control" truncate>
-                    web_app_demo
-                  </Typography>
-                  <Typography variant="caption" tone="muted" truncate>
-                    {workspaceLabel}
-                  </Typography>
-                </span>
+                <Typography
+                  className="group-data-[collapsible=icon]:hidden"
+                  truncate
+                  variant="brand"
+                >
+                  DiLife
+                </Typography>
               </DashboardLink>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={items} />
+        <NavMain items={items} label="Разделы" testId="workspace-nav" />
+        {serviceItems.length === 0 ? null : (
+          <NavMain items={serviceItems} label="Служебное" placement="bottom" />
+        )}
       </SidebarContent>
-      <SidebarFooter>
-        <NavUser
-          accountPath={accountPath}
-          onLogout={onLogout}
-          settingsPath={settingsPath}
-          user={user}
-        />
-      </SidebarFooter>
       <SidebarRail />
     </Sidebar>
   )

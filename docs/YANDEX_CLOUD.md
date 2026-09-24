@@ -8,7 +8,7 @@
 - Один приватный PostgreSQL 18, БД, владелец для миграций и DML-пользователи blue/green. Резервные копии на 7 дней, авторасширение диска, защита от удаления.
 - Container Registry и log group на 7 дней.
 - HTTP Serverless Container за API Gateway.
-- Отдельный контейнер миграции и три HTTP-контейнера заданий с таймерами.
+- Отдельный контейнер миграции и четыре HTTP-контейнера заданий с таймерами.
 - Публичные website-бакеты Object Storage для `webapp` и `website`.
 - Приватный media-бакет с версиями и ограниченными ключами в Lockbox. Старые версии удаляются через 30 дней, незавершённые multipart — через 7.
 - Отдельные аккаунты миграции, runtime, gateway, таймеров, публикатора и управления хранилищем с узкими правами.
@@ -159,7 +159,8 @@ Owner URL хранится в отдельном Lockbox-секрете толь
 | --- | --- | --- | --- |
 | `outbox:drain` | `* * ? * * *` | 240 / 180 секунд | Письма и задачи каждую минуту |
 | `uploads:pending:cleanup` | `15 * ? * * *` | 900 / 840 секунд | Незавершённые загрузки каждый час |
-| `auth:sessions:cleanup` | `0 3 ? * * *` | 240 / 180 секунд | Сессии, токены сброса и окна лимитов ежедневно |
+| `notifications:process` | `* * ? * * *` | 240 / 180 секунд | Отправка push и проверка Expo receipts каждую минуту |
+| `maintenance:process` | `*/15 * ? * * *` | 240 / 180 секунд | Очистка auth, окон лимитов и содержимого уведомлений |
 
 API и задания подключены к VPC; PostgreSQL не имеет публичного IP. Serverless Containers получают адреса `198.19.0.0/16`, поэтому группа БД разрешает TCP/6432 именно оттуда. Пользовательские `10.20.*` — подсети БД/сети, не исходные адреса контейнеров.
 
@@ -173,7 +174,7 @@ Command/task-режим используется только для явной 
 
 Провайдер из `infra/yandex/*/versions.tf` поддерживает только `yandex_monitoring_dashboard`, без alert/channel. После первого релиза создай правила вручную один раз на folder. Они переживают релизы, пока ID контейнеров прежние. После пересоздания folder/контейнеров создай их снова.
 
-Задания: `<project_slug>-prod-outbox`, `-uploads`, `-auth`. Найди ID для метки `container`:
+Задания: `<project_slug>-prod-outbox`, `-notifications`, `-uploads`, `-maintenance`. Найди ID для метки `container`:
 
 ```bash
 yc serverless container list --folder-id <folder_id>
@@ -181,7 +182,7 @@ yc serverless container list --folder-id <folder_id>
 
 1. **Канал.** Monitoring → Notification channels → Create channel, метод `Email`, имя `prod-alerts`. Получатели — аккаунты Yandex Cloud, не любые адреса. Каждому нужны `monitoring.viewer` на folder и email в настройках профиля консоли, раздел Monitoring.
 2. **`outbox drain stopped`.** Monitoring → Alerts → Create alert. Запрос: `series_sum(drop_empty_series("serverless.containers.started_per_second"{folderId="<folder_id>", service="serverless-containers", container="<outbox container id>"}))`. Агрегация `Maximum`, окно `10m`, Alarm при значении меньше `0.001`. Для `No selector metrics` и `No points in evaluation window` задай `Alarm`. Канал — `prod-alerts`.
-3. **`job failed`.** Запрос: `"serverless.containers.errors_per_second"{folderId="<folder_id>", service="serverless-containers", container="<outbox id>|<uploads id>|<auth id>"}`. Агрегация `Maximum`, окно `5m`, Alarm выше `0`. Обе политики отсутствия данных — `OK`, канал `prod-alerts`. Список через `|` включает только задания, не `<project_slug>-prod-api`.
+3. **`job failed`.** Запрос: `"serverless.containers.errors_per_second"{folderId="<folder_id>", service="serverless-containers", container="<outbox id>|<notifications id>|<uploads id>|<maintenance id>"}`. Агрегация `Maximum`, окно `5m`, Alarm выше `0`. Обе политики отсутствия данных — `OK`, канал `prod-alerts`. Список через `|` включает только задания, не `<project_slug>-prod-api`.
 
 В первом запросе важны обе функции. Метрика имеет `revision`: после релиза старая серия пуста. Голый selector может навсегда оставить Alarm из-за худшего состояния старой ревизии. Сначала удаляются пустые серии, затем суммируются остальные. Пока таймер работает, остаётся одна линия; после остановки — ни одной.
 

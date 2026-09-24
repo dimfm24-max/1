@@ -1,6 +1,6 @@
 import { isPermanentEmailError, type EmailDelivery, type EmailMessage } from '../../../email'
 import { TerminalTaskError } from '../../../outbox'
-import type { PasswordResetNotifier } from '../application/ports'
+import { emailVerificationTokenTtlHours, type PasswordResetNotifier } from '../application/ports'
 
 /**
  * Turns the two account emails into provider-neutral messages, and provider failures into outbox
@@ -11,9 +11,15 @@ import type { PasswordResetNotifier } from '../application/ports'
  * that is not a `TerminalTaskError`, so somebody has to translate. Auth infrastructure is the
  * right somebody - it already owns the other direction, queueing the task in the first place.
  */
+/** Subjects are exported so tests can find a message without repeating its wording. */
+export const passwordResetSubject = 'DiLife: смена пароля'
+export const passwordChangedSubject = 'DiLife: пароль изменён'
+export const emailVerificationSubject = 'DiLife: подтверди почту'
+
 export function createPasswordResetNotifier(
   emailDelivery: EmailDelivery,
   webappOrigin: string,
+  now: () => Date = () => new Date(),
 ): PasswordResetNotifier {
   async function send(message: EmailMessage, signal: AbortSignal) {
     try {
@@ -43,12 +49,32 @@ export function createPasswordResetNotifier(
       await send(
         {
           to: email,
-          subject: 'Reset your password',
+          subject: passwordResetSubject,
           text: [
-            'Use the link below to reset your password:',
+            'Чтобы задать новый пароль, открой ссылку:',
             resetUrl.toString(),
-            `This link expires at ${expiresAt.toISOString()}.`,
-            'If you did not request this change, you can ignore this email.',
+            // The account has no time zone here, so the deadline is a duration rather than a
+            // clock time that would be wrong for most readers.
+            `Ссылка действует ${describeMinutesLeft(expiresAt, now())}.`,
+            'Если ты не просил сменить пароль, просто не отвечай на это письмо.',
+          ].join('\n\n'),
+        },
+        signal,
+      )
+    },
+    async sendEmailVerification({ email, token }, signal) {
+      // Outside /app, next to /reset-password: the link has to work on a device with no session.
+      const verifyUrl = new URL('/verify-email', webappOrigin)
+      verifyUrl.hash = new URLSearchParams({ token }).toString()
+      await send(
+        {
+          to: email,
+          subject: emailVerificationSubject,
+          text: [
+            'Привет! Это DiLife. Подтверди, что это твоя почта, — открой ссылку:',
+            verifyUrl.toString(),
+            `Ссылка действует ${emailVerificationTokenTtlHours} часа. Если она устарела, в приложении есть кнопка «Отправить письмо ещё раз».`,
+            'Если ты не регистрировался в DiLife, просто не отвечай на это письмо.',
           ].join('\n\n'),
         },
         signal,
@@ -58,11 +84,29 @@ export function createPasswordResetNotifier(
       await send(
         {
           to: email,
-          subject: 'Your password was changed',
-          text: 'Your password was changed and existing sessions were signed out. If this was not you, contact support immediately.',
+          subject: passwordChangedSubject,
+          text: [
+            'Пароль от DiLife изменён. Все входы на других устройствах завершены.',
+            'Если это был не ты, сразу задай новый пароль: «Забыл пароль?» на странице входа.',
+          ].join('\n\n'),
         },
         signal,
       )
     },
   }
+}
+
+function describeMinutesLeft(expiresAt: Date, now: Date): string {
+  const minutes = Math.max(1, Math.round((expiresAt.getTime() - now.getTime()) / 60_000))
+  const tail = minutes % 100
+  const last = minutes % 10
+  const word =
+    tail >= 11 && tail <= 14
+      ? 'минут'
+      : last === 1
+        ? 'минуту'
+        : last >= 2 && last <= 4
+          ? 'минуты'
+          : 'минут'
+  return `ещё ${minutes} ${word}`
 }

@@ -2,7 +2,7 @@ import {
   updateProfileRequestSchema,
   updateProfileResponseSchema,
   type UpdateProfileRequest,
-} from '@web-app-demo/contracts'
+} from '@dilife/contracts'
 
 import type { AuthenticatedTransport } from '@/platform/api'
 
@@ -18,4 +18,11 @@ export function updateProfile(
       body: updateProfileRequestSchema.parse(input),
     },
   )
+}
+
+/** The first-run wizard is done (task 07). */
+export function completeOnboarding(transport: AuthenticatedTransport) {
+  return transport.request('/api/users/me/onboarding', updateProfileResponseSchema, {
+    method: 'POST',
+  })
 }

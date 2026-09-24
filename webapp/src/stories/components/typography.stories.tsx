@@ -13,6 +13,10 @@ type Story = StoryObj<typeof meta>
 export const Scale: Story = {
   render: () => (
     <div className="grid max-w-3xl gap-4 p-5">
+      <Typography variant="eyebrow" tone="primary">Eyebrow — section context</Typography>
+      <Typography variant="display">Display — the screen's one headline</Typography>
+      <Typography variant="metric">42%</Typography>
+      <Typography variant="metricSm">100</Typography>
       {(['h1', 'h2', 'h3', 'h4', 'h5', 'h6'] as const).map((variant) => (
         <Typography key={variant} variant={variant}>
           {variant.toUpperCase()} — Build consistent interfaces

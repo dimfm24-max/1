@@ -1,6 +1,36 @@
 import { defaultJobLockTimeoutMs, isJobLockExpiry, runWithJobLock } from './db'
-import { createBackendRuntime, type BackendRuntime } from './runtime'
+import { createBackgroundRuntime, type BackendRuntime } from './runtime'
 import { runBackgroundJob, type BackgroundJobName } from './jobs'
+import type { createNotificationsModule } from './modules/notifications'
+
+/**
+ * The loop-shaped runner, in two flavours.
+ *
+ * `bun src/worker.ts` runs whatever is configured in `workerLoops` below: generic loops over the
+ * job registry in `jobs.ts`, shared with `cron.ts` and `scheduler.ts`. Empty by default.
+ *
+ * `bun src/worker.ts notifications` runs the purpose-built push pipeline instead. It is not a
+ * `workerLoop` because it needs more than an interval: outbox processing is handed the shutdown
+ * `AbortSignal` and a runtime budget derived from `SHUTDOWN_GRACE_SECONDS`, so a long batch is cut
+ * short cleanly rather than killed mid-send, and quiet periods still emit a heartbeat.
+ *
+ * See docs/BACKGROUND_JOBS.md.
+ */
+type WorkerMode = 'notifications' | 'loops'
+type WorkerSignal = 'SIGINT' | 'SIGTERM'
+type WorkerSignalSource = {
+  off(signal: WorkerSignal, listener: () => void): unknown
+  once(signal: WorkerSignal, listener: () => void): unknown
+}
+
+// Bun 1.4 adds a memoryPressure overload to Process that hides the inherited Node signal
+// overload during structural assignment. Narrow only at this boundary; the worker itself keeps a
+// small injectable contract that its shutdown behavior can test without a real process signal.
+const processWorkerSignals = process as unknown as WorkerSignalSource
+
+type WorkerLogger = Pick<Console, 'error' | 'log'>
+
+const defaultWorkerHeartbeatIntervalMs = 5 * 60 * 1_000
 
 export type WorkerLoop = {
   job: BackgroundJobName
@@ -118,38 +148,169 @@ function reportIterationFailure(loop: WorkerLoop, error: unknown) {
 
   console.error(`Worker job ${loop.job} failed.`, error)
 }
+export async function runNotificationsWorker(
+  runtime: BackendRuntime,
+  options: {
+    heartbeatIntervalMs?: number
+    logger?: WorkerLogger
+    notifications?: Pick<
+      ReturnType<typeof createNotificationsModule>,
+      'checkReceipts' | 'processOutbox'
+    >
+    now?: () => number
+    pollIntervalMs?: number
+    signal?: AbortSignal
+  } = {},
+) {
+  const pollIntervalMs = options.pollIntervalMs ?? 5_000
+  const heartbeatIntervalMs =
+    options.heartbeatIntervalMs ?? defaultWorkerHeartbeatIntervalMs
+  const logger = options.logger ?? console
+  const now = options.now ?? Date.now
+  const notifications =
+    options.notifications ??
+    // Imported here rather than at the top of the file: the loop runners in this same module are
+    // read by tooling that must not pull the Expo SDK in.
+    (await import('./modules/notifications')).createNotificationsModule({
+      db: runtime.prisma,
+      env: runtime.env,
+    })
+  const shutdownBudgetMs = Math.max(1, runtime.env.SHUTDOWN_GRACE_SECONDS * 1_000 - 5_000)
+  const processMaxRuntimeMs = Math.min(
+    runtime.env.PUSH_OUTBOX_PROCESS_MAX_RUNTIME_MS ?? shutdownBudgetMs,
+    shutdownBudgetMs,
+  )
+  let lastHeartbeatAt = now()
+  logger.log(`Notification worker started; polling every ${pollIntervalMs}ms.`)
 
-export async function runWorker(runtime: BackendRuntime) {
+  while (!options.signal?.aborted) {
+    const outbox = await notifications
+      .processOutbox({ maxRuntimeMs: processMaxRuntimeMs, signal: options.signal })
+      .catch((error: unknown) => {
+        if (!options.signal?.aborted) {
+          logger.error('[NotificationWorker] processPushOutbox failed:', error)
+        }
+        return null
+      })
+    if (options.signal?.aborted) break
+
+    const receipts = await notifications
+      .checkReceipts({ signal: options.signal })
+      .catch((error: unknown) => {
+        if (!options.signal?.aborted) {
+          logger.error('[NotificationWorker] checkPushReceipts failed:', error)
+        }
+        return null
+      })
+
+    if (options.signal?.aborted) break
+
+    const currentTime = now()
+    if (hasNotificationActivity(outbox, receipts)) {
+      logger.log('[NotificationWorker] activity', { outbox, receipts })
+      lastHeartbeatAt = currentTime
+    } else {
+      if (currentTime - lastHeartbeatAt >= heartbeatIntervalMs) {
+        logger.log('[NotificationWorker] heartbeat')
+        lastHeartbeatAt = currentTime
+      }
+    }
+
+    await delay(pollIntervalMs, options.signal)
+  }
+}
+
+export async function runWorker(
+  runtime: BackendRuntime,
+  mode: WorkerMode = 'loops',
+  options: { signal?: AbortSignal } = {},
+) {
+  if (mode === 'notifications') {
+    await runNotificationsWorker(runtime, options)
+    return
+  }
+
   if (workerLoops.length === 0) {
     console.log(
-      'Worker started with no loops. Add entries to `workerLoops` in src/worker.ts; see docs/BACKGROUND_JOBS.md.',
+      'Worker started with no loops. Add entries to `workerLoops` in src/worker.ts, or run `bun src/worker.ts notifications`; see docs/BACKGROUND_JOBS.md.',
     )
     return
   }
 
   const handle = startWorkerLoops(runtime)
-
-  const stop = (signal: string) => {
-    console.log(`Worker received ${signal}; finishing the current iteration.`)
-    handle.stop()
-  }
-
-  process.on('SIGINT', () => stop('SIGINT'))
-  process.on('SIGTERM', () => stop('SIGTERM'))
-
-  await handle.stopped
-}
-
-export async function main() {
-  const runtime = createBackendRuntime()
+  const stopOnAbort = () => handle.stop()
+  options.signal?.addEventListener('abort', stopOnAbort, { once: true })
 
   try {
-    await runWorker(runtime)
+    await handle.stopped
   } finally {
+    options.signal?.removeEventListener('abort', stopOnAbort)
+  }
+}
+
+export async function main(argv: string[] = Bun.argv.slice(2)) {
+  const mode = workerMode(argv[0])
+  const runtime = createBackgroundRuntime()
+  const shutdown = listenForWorkerShutdown()
+
+  try {
+    await runWorker(runtime, mode, { signal: shutdown.signal })
+  } finally {
+    shutdown.dispose()
     await runtime.close()
   }
 }
 
 if (import.meta.main) {
   await main()
+}
+
+/** No argument means the loops. Anything unrecognised is a typo, not a request for the default. */
+export function workerMode(argument: string | undefined): WorkerMode {
+  if (argument === undefined) return 'loops'
+  if (argument === 'notifications' || argument === 'loops') return argument
+
+  console.error(`Unknown worker mode "${argument}". Available modes: loops, notifications.`)
+  process.exit(1)
+}
+
+export function listenForWorkerShutdown(source: WorkerSignalSource = processWorkerSignals) {
+  const controller = new AbortController()
+  const abort = () => controller.abort()
+
+  source.once('SIGINT', abort)
+  source.once('SIGTERM', abort)
+
+  return {
+    signal: controller.signal,
+    dispose() {
+      source.off('SIGINT', abort)
+      source.off('SIGTERM', abort)
+    },
+  }
+}
+
+function delay(ms: number, signal: AbortSignal | undefined) {
+  if (signal?.aborted) return Promise.resolve()
+
+  return new Promise<void>((resolve) => {
+    let timeout: ReturnType<typeof setTimeout>
+    const finish = () => {
+      clearTimeout(timeout)
+      signal?.removeEventListener('abort', finish)
+      resolve()
+    }
+    timeout = setTimeout(finish, ms)
+    signal?.addEventListener('abort', finish, { once: true })
+  })
+}
+
+function hasNotificationActivity(
+  outbox: Awaited<ReturnType<ReturnType<typeof createNotificationsModule>['processOutbox']>> | null,
+  receipts: Awaited<ReturnType<ReturnType<typeof createNotificationsModule>['checkReceipts']>> | null,
+) {
+  return (
+    (outbox != null && Object.values(outbox).some((value) => value > 0)) ||
+    (receipts != null && Object.values(receipts).some((value) => value > 0))
+  )
 }

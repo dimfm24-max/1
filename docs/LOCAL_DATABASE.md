@@ -6,6 +6,10 @@
 
 Для Prisma всегда задавай полный URL `postgresql://user:password@host:port/db?schema=public`, даже при нативной установке. Peer-auth URL без пользователя может вызвать общую ошибку schema engine вместо понятной диагностики соединения.
 
+## Drift после отключения возможности
+
+Если локальная БД уже применила миграции удалённой возможности, `prisma migrate dev` обнаружит оставшиеся таблицы. Сбрось локальную БД, если данные не нужны. Рабочую БД не сбрасывай: создай миграцию удаления.
+
 ## Требования
 
 - Windows: Docker Desktop с WSL 2.
@@ -50,7 +54,7 @@ Copy-Item backend/.env.example backend/.env
 docker compose --env-file backend/.env pull postgres
 docker compose --env-file backend/.env up -d postgres
 docker compose --env-file backend/.env ps postgres
-docker compose --env-file backend/.env exec postgres pg_isready -U superuser -d web_app_demo
+docker compose --env-file backend/.env exec postgres pg_isready -U superuser -d dilife
 ```
 
 Локальное подключение:
@@ -58,10 +62,10 @@ docker compose --env-file backend/.env exec postgres pg_isready -U superuser -d 
 ```text
 host: localhost
 port: 54329
-database: web_app_demo
+database: dilife
 user: superuser
 password: superpassword
-DATABASE_URL: postgresql://superuser:superpassword@localhost:54329/web_app_demo?schema=public
+DATABASE_URL: postgresql://superuser:superpassword@localhost:54329/dilife?schema=public
 ```
 
 Примени миграции:
@@ -95,10 +99,10 @@ docker compose --env-file backend/.env up -d postgres_test
 ```text
 host: localhost
 port: 54330
-database: web_app_demo_test
+database: dilife_test
 user: superuser
 password: superpassword
-TEST_DATABASE_URL: postgresql://superuser:superpassword@localhost:54330/web_app_demo_test?schema=public
+TEST_DATABASE_URL: postgresql://superuser:superpassword@localhost:54330/dilife_test?schema=public
 ```
 
 Автоматические скрипты выбирают `POSTGRES_TEST_PORT` по репозиторию и формируют `TEST_DATABASE_URL`. Это позволяет запускать копии проекта параллельно. Задавай порт вручную только при необходимости фиксированного значения.

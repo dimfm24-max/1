@@ -1,8 +1,8 @@
 import type {
   PasswordResetRequestResponse,
   RegisterPayload,
-  UserDto,
-} from '@web-app-demo/contracts'
+  SocialAuthProvider,
+} from '@dilife/contracts'
 
 import type { SessionMetadata } from '../domain/session'
 import type { AuthUserRecord } from '../domain/user'
@@ -15,6 +15,7 @@ export type AccessTokenPayload = {
 
 export type AuthRepository = {
   findUserByEmail(email: string): Promise<AuthUserRecord | null>
+  findUserById(id: string): Promise<AuthUserRecord | null>
   createPasswordUserWithSession(input: {
     user: RegisterPayload & { passwordHash: string }
     session: {
@@ -23,7 +24,22 @@ export type AuthRepository = {
       expiresAt: Date
       metadata: SessionMetadata
     }
+    /**
+     * Called inside the transaction that creates the account, so an account never exists without
+     * its confirmation letter queued. Absent when there is nothing to queue.
+     */
+    queueVerification?: (userId: string, enqueue: (task: QueuedTask) => Promise<void>) => Promise<void>
   }): Promise<{ user: AuthUserRecord; session: { id: string } }>
+  findUserByProviderSubject(
+    provider: SocialAuthProvider,
+    subject: string,
+  ): Promise<AuthUserRecord | null>
+  createSocialUser(input: {
+    displayName?: string
+    email: string
+    provider: SocialAuthProvider
+    subject: string
+  }): Promise<{ created: boolean; user: AuthUserRecord }>
   createSession(input: {
     authorizeUser(user: AuthUserRecord): boolean | Promise<boolean>
     userId: string
@@ -61,11 +77,15 @@ export type AuthRepository = {
     now: Date
     createdAfter: Date
   }): Promise<{ id: string; user: AuthUserRecord } | null>
-  revokeSession(input: {
-    refreshTokenHash: string
-    refreshTokenFamilyHash: string
-    now: Date
-  }): Promise<string | null>
+  revokeSession(
+    input: {
+      expoPushTokens: string[]
+      refreshTokenHash: string
+      refreshTokenFamilyHash: string
+      now: Date
+    },
+    cleanup: LogoutCleanup,
+  ): Promise<string | null>
   createPasswordResetToken(input: {
     userId: string
     tokenHash: string
@@ -75,6 +95,17 @@ export type AuthRepository = {
   }): Promise<boolean>
   invalidatePasswordResetToken(input: { tokenHash: string; now: Date }): Promise<void>
   hasActivePasswordResetToken(input: { tokenHash: string; now: Date }): Promise<boolean>
+  /** Same cooldown rule as password reset tokens: false when one was minted too recently. */
+  createEmailVerificationToken(input: {
+    userId: string
+    tokenHash: string
+    expiresAt: Date
+    now: Date
+    createdAfter: Date
+  }): Promise<boolean>
+  invalidateEmailVerificationToken(input: { tokenHash: string; now: Date }): Promise<void>
+  /** Marks the token's owner verified and spends every link of theirs. False for a dead token. */
+  completeEmailVerification(input: { tokenHash: string; now: Date }): Promise<boolean>
   completePasswordReset(input: {
     tokenHash: string
     passwordHash: string
@@ -110,6 +141,10 @@ export type PasswordResetNotifier = {
     signal: AbortSignal,
   ): Promise<void>
   sendPasswordChanged(input: { email: string }, signal: AbortSignal): Promise<void>
+  sendEmailVerification(
+    input: { email: string; token: string },
+    signal: AbortSignal,
+  ): Promise<void>
   /**
    * True when a send failed in a way no retry can fix, so compensation has to happen now.
    *
@@ -143,6 +178,34 @@ export type PasswordResetTaskQueue = {
  */
 export const passwordResetCooldownSeconds = 60
 
+/**
+ * Guards the queue of confirmation letters. Registration needs no session, so anyone can fill the
+ * queue from many addresses; past the ceiling nothing is queued and the person can ask again
+ * from the banner. See docs/BACKGROUND_JOBS.md, "What an anonymous client can enqueue".
+ */
+export type EmailVerificationTaskQueue = {
+  hasRoom(now: Date): Promise<boolean>
+  enqueue(task: QueuedTask): Promise<void>
+}
+
+export const emailVerificationTaskType = 'auth:email-verification'
+
+/** A confirmation link lives a day: the letter is often opened later, on another device. */
+export const emailVerificationTokenTtlHours = 24
+
+/**
+ * One letter per account per cooldown. The dedupe bucket and the token cooldown are the same
+ * window, as with password resets, so a collapsed burst and a refused token mean the same thing.
+ */
+export function emailVerificationTask(userId: string, now: Date): QueuedTask {
+  const bucket = Math.floor(now.getTime() / (passwordResetCooldownSeconds * 1000))
+  return {
+    dedupeKey: `${userId}:${bucket}`,
+    payload: { userId },
+    type: emailVerificationTaskType,
+  }
+}
+
 /** What the application asks for; the infrastructure decides which client writes it. */
 export type QueuedTask = {
   type: string
@@ -165,5 +228,22 @@ export type Clock = {
   now(): Date
 }
 
-export type ProjectUser = (user: AuthUserRecord) => UserDto | Promise<UserDto>
-export type LogoutCleanup = (input: { userId: string }) => void | Promise<void>
+export type SocialIdentity = {
+  subject: string
+  email?: string
+  displayName?: string
+}
+
+export type SocialIdentities = {
+  verify(provider: SocialAuthProvider, idToken: string): Promise<SocialIdentity>
+}
+
+export type LogoutCleanupStore = {
+  removePushTokens(userId: string, expoPushTokens: string[]): Promise<void>
+}
+
+export type LogoutCleanup = (input: {
+  expoPushTokens: string[]
+  store: LogoutCleanupStore
+  userId: string
+}) => void | Promise<void>

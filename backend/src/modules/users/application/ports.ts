@@ -1,40 +1,14 @@
-import type {
-  AdminDashboardResponse,
-  AdminUserSummary,
-  AdminUsersQuery,
-  AdminUsersResponse,
-  UserRole,
-} from '@web-app-demo/contracts'
-
 export type UserRecord = {
   id: string
   email: string
   displayName: string | null
-  role: UserRole
+  emailVerifiedAt: Date | null
+  onboardingCompletedAt: Date | null
   createdAt: Date
 }
 
 export type ProfileWriter = {
   updateProfile(userId: string, displayName: string | null): Promise<UserRecord>
-}
-
-export type AdminDashboardReader = {
-  dashboard(createdAfter: Date): Promise<AdminDashboardResponse>
-}
-
-export type AdminUsersReader = {
-  listUsers(query: AdminUsersQuery): Promise<AdminUsersResponse>
-}
-
-export type UserRoleUpdater = {
-  updateRole(input: {
-    actorUserId: string
-    targetUserId: string
-    role: UserRole
-    now: Date
-  }): Promise<AdminUserSummary>
-}
-
-export type Clock = {
-  now(): Date
+  /** Marks the wizard finished; a second call keeps the first moment. */
+  completeOnboarding(userId: string, now: Date): Promise<UserRecord>
 }

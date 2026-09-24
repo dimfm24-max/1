@@ -1,53 +1,64 @@
-import type { UserRole } from '@web-app-demo/contracts'
-
-// Every path pattern registered under the role's workspace layout in `src/routes.tsx`, in TanStack
+// Every path pattern registered under the workspace layout in `src/routes.tsx`, in TanStack
 // syntax (`$param` segments). This is the return-path allow-list: a protected route survives the
 // login round-trip whether or not the sidebar links to it. `tests/navigation.test.ts` fails when
 // this table and the router drift apart.
-export const workspaceRoutesByRole = {
-  user: ['/app', '/app/profile', '/app/settings'],
-  admin: ['/admin', '/admin/users', '/admin/settings'],
-} as const satisfies Record<UserRole, ReadonlyArray<`/${string}`>>
+export const workspaceRoutes = [
+  '/app',
+  '/app/day',
+  '/app/goals',
+  '/app/habits',
+  '/app/horizon',
+  '/app/statistics',
+  '/app/notes',
+  '/app/calendar',
+  '/app/settings',
+  '/app/settings/$section',
+  // Old addresses kept so bookmarks still open: they redirect into the settings sections.
+  '/app/share',
+  '/app/profile',
+] as const
 
-type WorkspaceRouteTable = Record<UserRole, ReadonlyArray<string>>
+type WorkspaceRouteTable = ReadonlyArray<string>
 
-// Concrete, parameter-free workspace paths: the only ones a sidebar link or a role home can target
-// without params. A `$param` route belongs in the table above but never in these unions.
+// Concrete, parameter-free workspace paths: the only ones a sidebar link or the home path can
+// target without params. A `$param` route belongs in the table above but never in this union.
 type StaticPath<T extends string> = T extends `${string}$${string}` ? never : T
-export type UserRoutePath = StaticPath<(typeof workspaceRoutesByRole.user)[number]>
-export type AdminRoutePath = StaticPath<(typeof workspaceRoutesByRole.admin)[number]>
-export type WorkspaceRoutePath = UserRoutePath | AdminRoutePath
+export type WorkspaceRoutePath = StaticPath<(typeof workspaceRoutes)[number]>
 
 // The sidebar menu is a presentation subset of the workspace routes; the type keeps it one.
-const navigationByRole = {
-  user: [
-    { label: 'Home', to: '/app' },
-    { label: 'Profile', to: '/app/profile' },
-    { label: 'Settings', to: '/app/settings' },
-  ],
-  admin: [
-    { label: 'Dashboard', to: '/admin' },
-    { label: 'Users', to: '/admin/users' },
-    { label: 'Settings', to: '/admin/settings' },
-  ],
-} as const satisfies Record<UserRole, ReadonlyArray<{ label: string; to: WorkspaceRoutePath }>>
+// The seven sections of §6 in PRD.md, plus «План дня» and «Горизонт жизни», which the owner
+// kept as menu items of their own (23.09.2026). Profile and sharing live inside «Настройки».
+// `main` holds the sections a day is lived in; `service` sits apart at the foot of the menu.
+const navigationItems = [
+  { id: 'today', label: 'Сегодня', to: '/app', group: 'main' },
+  { id: 'day', label: 'План дня', to: '/app/day', group: 'main' },
+  { id: 'goals', label: 'Цели', to: '/app/goals', group: 'main' },
+  { id: 'habits', label: 'Привычки', to: '/app/habits', group: 'main' },
+  { id: 'calendar', label: 'Календарь', to: '/app/calendar', group: 'main' },
+  { id: 'horizon', label: 'Горизонт жизни', to: '/app/horizon', group: 'main' },
+  { id: 'statistics', label: 'Статистика', to: '/app/statistics', group: 'main' },
+  { id: 'notes', label: 'Заметки', to: '/app/notes', group: 'main' },
+  { id: 'settings', label: 'Настройки', to: '/app/settings', group: 'service' },
+] as const satisfies ReadonlyArray<{
+  id: string
+  label: string
+  to: WorkspaceRoutePath
+  group: 'main' | 'service'
+}>
 
-export function navigationItemsForRole(role: UserRole) {
-  return navigationByRole[role]
+export const homePath = '/app' as const
+
+export function workspaceNavigationItems() {
+  return navigationItems
 }
 
-export function homePathForRole(role: UserRole): '/app' | '/admin' {
-  return role === 'admin' ? '/admin' : '/app'
-}
-
-export function resolveRoleDestination(role: UserRole, pathname: string): string {
-  return isWorkspacePath(role, pathname) ? pathname : homePathForRole(role)
+export function resolveDestination(pathname: string): string {
+  return isWorkspacePath(pathname) ? pathname : homePath
 }
 
 export function safeReturnPath(
-  role: UserRole,
   value: string | undefined,
-  routes: WorkspaceRouteTable = workspaceRoutesByRole,
+  routes: WorkspaceRouteTable = workspaceRoutes,
 ): string | null {
   if (!value || !value.startsWith('/') || value.startsWith('//')) return null
 
@@ -58,20 +69,19 @@ export function safeReturnPath(
     return null
   }
   if (url.origin !== 'https://app.invalid') return null
-  return isWorkspacePath(role, url.pathname, routes) ? `${url.pathname}${url.search}` : null
+  return isWorkspacePath(url.pathname, routes) ? `${url.pathname}${url.search}` : null
 }
 
 function isWorkspacePath(
-  role: UserRole,
   pathname: string,
-  routes: WorkspaceRouteTable = workspaceRoutesByRole,
+  routes: WorkspaceRouteTable = workspaceRoutes,
 ): boolean {
-  return routes[role].some((pattern) => matchesRoutePattern(pattern, pathname))
+  return routes.some((pattern) => matchesRoutePattern(pattern, pathname))
 }
 
 // A literal segment must match exactly; a named `$param` segment matches one non-empty segment.
 // Route shapes this does not understand (a bare `$` splat, optional or prefixed params) never
-// match, so such a return path falls back to the role home, which is the safe direction; extend
+// match, so such a return path falls back to the home path, which is the safe direction; extend
 // the matcher when such a route is registered.
 function matchesRoutePattern(pattern: string, pathname: string): boolean {
   const patternSegments = pattern.split('/')

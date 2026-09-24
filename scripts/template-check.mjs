@@ -624,7 +624,7 @@ function hasBootstrapInstructions(source) {
 
 function withoutFencedCode(source) {
   let fence
-  return source
+  const withoutFences = source
     .split(/\r?\n/)
     .filter((line) => {
       if (!fence) {
@@ -648,6 +648,10 @@ function withoutFencedCode(source) {
       return true
     })
     .join('\n')
+
+  return withoutFences
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/<!--[\s\S]*$/g, '')
 }
 
 function isExternalLink(target) {

@@ -7,6 +7,11 @@ const booleanStringSchema = z
   .default('false')
   .transform((value) => value === 'true')
 
+const optionalBooleanStringSchema = z.preprocess(
+  (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
+  z.enum(['true', 'false']).optional(),
+).transform((value) => value === 'true')
+
 const knownWeakJwtSecrets = new Set(['replace-with-at-least-32-random-characters'])
 
 const optionalStringSchema = z.preprocess((value) => {
@@ -20,6 +25,23 @@ const optionalUrlSchema = z.preprocess((value) => {
   const trimmed = value.trim()
   return trimmed === '' ? undefined : trimmed
 }, z.string().url().optional())
+
+const optionalPositiveIntegerSchema = z.preprocess((value) => {
+  if (typeof value !== 'string') return value
+  const trimmed = value.trim()
+  return trimmed === '' ? undefined : trimmed
+}, z.coerce.number().int().positive().optional())
+
+const commaSeparatedStringArraySchema = z
+  .string()
+  .optional()
+  .default('')
+  .transform((value) =>
+    value
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean),
+  )
 
 const optionalHttpHeaderNameSchema = z.preprocess((value) => {
   if (typeof value !== 'string') return value
@@ -55,10 +77,13 @@ const envSchema = z.object({
   SESSION_ABSOLUTE_TTL_DAYS: z.coerce.number().int().positive().default(90),
   SESSION_RETENTION_DAYS: z.coerce.number().int().nonnegative().default(7),
   AUTH_BODY_LIMIT_BYTES: z.coerce.number().int().positive().max(1024 * 1024).default(64 * 1024),
+  INGRESS_RATE_LIMIT_PROVIDER: z.enum(['local', 'yandex-sws']).default('local'),
   AUTH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(60),
   AUTH_RATE_LIMIT_WINDOW_SECONDS: z.coerce.number().int().positive().default(60),
-  ADMIN_USERS_READ_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(120),
-  ADMIN_USERS_READ_RATE_LIMIT_WINDOW_SECONDS: z.coerce.number().int().positive().default(60),
+  // The signed-in data API: the day, goals, habits and the rest. A planner is used in bursts -
+  // ticking steps, dragging tasks, every screen loading its own data - so it needs far more room
+  // than signing in, which stays at AUTH_RATE_LIMIT_MAX. Same window.
+  API_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(600),
   // Where the auth and admin limiters count. `memory` is one process's own table and the whole
   // truth while one API instance serves every request: DigitalOcean's launch profile, an own
   // server, local development. `database` counts in PostgreSQL through one upsert per limited
@@ -107,6 +132,26 @@ const envSchema = z.object({
   PRIVATE_STORAGE_UPLOAD_MAX_BYTES: z.coerce.number().int().positive().default(5 * 1024 * 1024),
   PRIVATE_STORAGE_UPLOAD_URL_TTL_SECONDS: z.coerce.number().int().positive().max(7 * 24 * 60 * 60).default(15 * 60),
   PRIVATE_STORAGE_DOWNLOAD_URL_TTL_SECONDS: z.coerce.number().int().positive().max(7 * 24 * 60 * 60).default(5 * 60),
+  APPLE_AUTH_BUNDLE_ID: optionalStringSchema,
+  APPLE_AUTH_JWKS_TIMEOUT_MS: z.coerce.number().int().positive().default(5_000),
+  GOOGLE_AUTH_CLIENT_IDS: z
+    .string()
+    .optional()
+    .default('')
+    .transform((value) =>
+      value
+        .split(',')
+        .map((clientId) => clientId.trim())
+        .filter(Boolean),
+    ),
+  EXPO_PUSH_ACCESS_TOKEN: optionalStringSchema,
+  ENABLE_TEST_PUSH: optionalBooleanStringSchema,
+  PUSH_TOKEN_MAX_PER_USER: optionalPositiveIntegerSchema,
+  PUSH_OUTBOX_PROCESS_LIMIT: optionalPositiveIntegerSchema,
+  PUSH_OUTBOX_PROCESS_MAX_LOOPS: optionalPositiveIntegerSchema,
+  PUSH_OUTBOX_PROCESS_MAX_RUNTIME_MS: optionalPositiveIntegerSchema,
+  PUSH_OUTBOX_PROCESSING_STALE_MS: optionalPositiveIntegerSchema,
+  PUSH_RECEIPT_CHECK_LIMIT: optionalPositiveIntegerSchema,
 }).superRefine((env, ctx) => {
   validateJwtSecret(env, ctx)
   validateProductionRuntime(env, ctx)
@@ -114,6 +159,7 @@ const envSchema = z.object({
   validateWebappOrigin(env, ctx)
   validateSessionTtls(env, ctx)
   validateTrustedProxy(env, ctx)
+  validateIngressRateLimitProvider(env, ctx)
   validatePrivateStorageEnv(env, ctx)
   validateEmailEnv(env, ctx)
 })
@@ -122,6 +168,22 @@ export type AppEnv = z.infer<typeof envSchema>
 
 export function loadEnv(source: Record<string, string | undefined>) {
   return envSchema.parse(source)
+}
+
+const backgroundNonSigningJwtPlaceholder = '0123456789abcdef'.repeat(4)
+
+export function loadBackgroundEnv(source: Record<string, string | undefined>) {
+  return loadEnv({
+    ...source,
+    CORS_ORIGINS: 'https://background.invalid',
+    // Forced only where it is a real statement about the deployment. In production the API's
+    // fail-closed checks must apply to a runner booting the same image; in development forcing it
+    // would mean asserting things about a process that serves no browser at all - and one of
+    // those, the HTTPS rule on WEBAPP_ORIGIN, would then refuse the `http://localhost:5173` that
+    // `.env.example` ships, so `bun run dev` could not start its scheduler.
+    ...(source.NODE_ENV === 'production' ? { COOKIE_SECURE: 'true' } : {}),
+    JWT_SECRET: backgroundNonSigningJwtPlaceholder,
+  })
 }
 
 function validateWebappOrigin(env: z.infer<typeof envSchema>, ctx: z.RefinementCtx) {
@@ -177,6 +239,28 @@ function validateTrustedProxy(env: z.infer<typeof envSchema>, ctx: z.RefinementC
       message: 'TRUSTED_PROXY_CLIENT_IP_POSITION requires TRUSTED_PROXY_CLIENT_IP_HEADER',
     })
   }
+}
+
+function validateIngressRateLimitProvider(
+  env: z.infer<typeof envSchema>,
+  ctx: z.RefinementCtx,
+) {
+  if (env.INGRESS_RATE_LIMIT_PROVIDER !== 'yandex-sws') return
+
+  const hasYandexProxyContract =
+    env.TRUST_PROXY &&
+    env.TRUSTED_PROXY_CLIENT_IP_HEADER === 'x-forwarded-for' &&
+    env.TRUSTED_PROXY_CLIENT_IP_POSITION === 'last'
+  if (hasYandexProxyContract) return
+
+  ctx.addIssue({
+    code: 'custom',
+    path: ['INGRESS_RATE_LIMIT_PROVIDER'],
+    message:
+      'INGRESS_RATE_LIMIT_PROVIDER=yandex-sws requires TRUST_PROXY=true, ' +
+      'TRUSTED_PROXY_CLIENT_IP_HEADER=x-forwarded-for, and ' +
+      'TRUSTED_PROXY_CLIENT_IP_POSITION=last',
+  })
 }
 
 function validateJwtSecret(env: z.infer<typeof envSchema>, ctx: z.RefinementCtx) {
@@ -545,3 +629,5 @@ function validatePrivateStorageEnv(env: z.infer<typeof envSchema>, ctx: z.Refine
     })
   }
 }
+
+

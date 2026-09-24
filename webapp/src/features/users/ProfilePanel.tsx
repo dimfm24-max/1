@@ -1,4 +1,4 @@
-import type { UserDto } from '@web-app-demo/contracts'
+import type { UserDto } from '@dilife/contracts'
 import { useId, useState, type FormEvent } from 'react'
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -8,6 +8,7 @@ import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from '@/c
 import { Input } from '@/components/ui/input'
 import { Typography } from '@/components/typography'
 import { errorId, hasErrors } from '@/features/auth'
+import { describeApiError } from '@/platform/api'
 import { validateProfileForm } from './profile-form'
 import { useUpdateProfileMutation } from './queries'
 
@@ -31,70 +32,75 @@ export function ProfilePanel({ user }: { user: UserDto }) {
     <Card>
       <CardHeader>
         <Typography as="h2" variant="h6">
-          Profile details
+          Имя и почта
         </Typography>
         <CardDescription>
-          Update the name shown throughout your workspace. Your email is managed separately.
+          Так приложение будет к тебе обращаться.
         </CardDescription>
       </CardHeader>
       <CardContent>
         <form className="grid gap-5" noValidate onSubmit={submit}>
           <FieldGroup>
             <Field data-invalid={displayNameInvalid}>
-              <FieldLabel htmlFor="profile-display-name">Display name</FieldLabel>
+              <FieldLabel htmlFor="profile-display-name">Имя</FieldLabel>
               <Input
                 aria-describedby={errorId(displayNameErrors, displayNameErrorId)}
                 aria-invalid={displayNameInvalid}
                 autoComplete="name"
                 disabled={mutation.isPending}
+                data-testid="profile-display-name"
                 id="profile-display-name"
                 onChange={(event) => {
                   setDisplayName(event.target.value)
                   mutation.reset()
                 }}
-                placeholder="Your name"
+                placeholder="Как к тебе обращаться"
                 value={displayName}
               />
-              <FieldDescription>Leave empty to use your email instead.</FieldDescription>
+              <FieldDescription>Если оставить пустым, вместо имени будет почта.</FieldDescription>
               <FieldError id={displayNameErrorId} errors={displayNameErrors} />
             </Field>
             <Field>
-              <FieldLabel htmlFor="profile-email">Email</FieldLabel>
+              <FieldLabel htmlFor="profile-email">Почта</FieldLabel>
               <Input
                 aria-readonly="true"
+                data-testid="profile-email"
                 id="profile-email"
                 readOnly
                 value={user.email}
               />
-              <FieldDescription>Email changes are not enabled in this template.</FieldDescription>
+              <FieldDescription>Почту сменить нельзя.</FieldDescription>
             </Field>
           </FieldGroup>
 
           {validation.errors?.formError && (
             <Alert variant="destructive">
-              <AlertTitle>Profile cannot be saved</AlertTitle>
+              <AlertTitle>Не получается сохранить</AlertTitle>
               <AlertDescription>{validation.errors.formError}</AlertDescription>
             </Alert>
           )}
           {mutation.isError && (
             <Alert variant="destructive">
-              <AlertTitle>Profile was not saved</AlertTitle>
-              <AlertDescription>{mutation.error.message}</AlertDescription>
+              <AlertTitle>Не сохранилось</AlertTitle>
+              <AlertDescription>
+                {describeApiError(mutation.error, 'Попробуй ещё раз.')}
+              </AlertDescription>
             </Alert>
           )}
           {mutation.isSuccess && (
-            <Alert>
-              <AlertTitle>Profile saved</AlertTitle>
-              <AlertDescription>Your display name is up to date.</AlertDescription>
+            <Alert data-testid="profile-saved">
+              <AlertTitle>Сохранено</AlertTitle>
+              <AlertDescription>Имя обновлено.</AlertDescription>
             </Alert>
           )}
 
           <div>
             <Button
+              data-testid="profile-save"
               disabled={mutation.isPending || validation.errors !== null}
               type="submit"
             >
-              {mutation.isPending ? 'Saving…' : 'Save profile'}
+              {mutation.isPending ? 'Сохраняем…' : 'Сохранить'}
             </Button>
           </div>
         </form>

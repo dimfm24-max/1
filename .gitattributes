@@ -1,0 +1,4 @@
+# Checked-out text files keep LF on every platform. Git for Windows enables
+# core.autocrlf by default, and CRLF breaks the checklist and path assertions
+# that parse repository files line by line.
+* text=auto eol=lf

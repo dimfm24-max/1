@@ -3,7 +3,7 @@ import {
   createAvatarUploadRequestSchema,
   createAvatarUploadResponseSchema,
   type CreateAvatarUploadRequest,
-} from '@web-app-demo/contracts'
+} from '@dilife/contracts'
 
 import type { AuthenticatedTransport } from '@/platform/api'
 

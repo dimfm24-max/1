@@ -1,7 +1,6 @@
 import { QueryClient } from '@tanstack/react-query'
 import { expect, test } from 'bun:test'
 
-import { adminDashboardQueryOptions, adminUsersQueryOptions } from '../src/features/admin/queries'
 import {
   applyAuthenticatedSession,
   authQueryKeys,
@@ -18,8 +17,8 @@ const user = {
   id: 'user_1',
   email: 'user@example.com',
   displayName: null,
-  role: 'user',
   createdAt: '2026-05-11T00:00:00.000Z',
+  emailVerified: true,
 }
 
 test('auth query helpers keep access token and session-scoped cache in sync', async () => {
@@ -193,19 +192,15 @@ test('every session-scoped query hands the abort signal TanStack gives it to the
   const api = {
     me: async (options?: { signal?: AbortSignal }) => {
       received.push({ path: '/api/auth/me', signal: options?.signal })
-      return { user: { ...user, role: 'user' as const } }
+      return { user }
     },
   }
 
   await queryClient.fetchQuery(currentUserQueryOptions(api))
-  await queryClient.fetchQuery(adminDashboardQueryOptions(transport))
-  await queryClient.fetchQuery(adminUsersQueryOptions(transport, { page: 1, pageSize: 20 }))
   await queryClient.fetchQuery(avatarQueryOptions(transport))
 
   expect(received.map((request) => request.path)).toEqual([
     '/api/auth/me',
-    '/api/admin/dashboard',
-    '/api/admin/users?page=1&pageSize=20',
     '/api/uploads/avatar',
   ])
   expect(received.every((request) => request.signal instanceof AbortSignal)).toBe(true)

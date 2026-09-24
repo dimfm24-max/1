@@ -1,5 +1,5 @@
 {
-  "name": "@web-app-demo/website",
+  "name": "@dilife/website",
   "private": true,
   "type": "module",
   "version": "0.0.0",
@@ -36,9 +36,9 @@
     "lucide-react": "^1.28.0",
     "next-themes": "^0.4.6",
     "radix-ui": "^1.6.7",
-    "react": "^19.2.7",
+    "react": "19.2.3",
     "react-day-picker": "^10.0.1",
-    "react-dom": "^19.2.7",
+    "react-dom": "19.2.3",
     "react-resizable-panels": "^4.12.2",
     "recharts": "^3.10.1",
     "shadcn": "^4.16.1",

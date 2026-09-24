@@ -80,7 +80,7 @@ function ComboboxInput({
             className="group-has-data-[slot=combobox-clear]/input-group:hidden data-pressed:bg-transparent"
             disabled={disabled}
           >
-            <ComboboxTrigger aria-label="Toggle options" />
+            <ComboboxTrigger aria-label="Показать варианты" />
           </InputGroupButton>
         )}
         {showClear && <ComboboxClear disabled={disabled} />}

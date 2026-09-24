@@ -4,7 +4,6 @@ import {
   assertTestDatabaseUrl,
   composeEnv,
   composeProjectName,
-  defaultPostgresTestPort,
   defaultTestDatabaseUrl,
   postgresPortFromDatabaseUrl,
   postgresTestDataVolume,
@@ -13,23 +12,29 @@ import {
   repositoryRoot,
 } from '../../scripts/repo-env.mjs'
 
-const imageName = process.env.BACKEND_DOCKER_SMOKE_IMAGE ?? 'vibecoding-template-backend:smoke'
+const imageName = process.env.BACKEND_DOCKER_SMOKE_IMAGE ?? 'dilife-backend:smoke'
 const containerName =
   process.env.BACKEND_DOCKER_SMOKE_CONTAINER ??
-  `vibecoding-template-backend-smoke-${repositoryHash}-${process.pid}`
+  `dilife-backend-smoke-${repositoryHash}-${process.pid}`
 const hostPort = process.env.BACKEND_DOCKER_SMOKE_PORT ?? String(await findOpenPort())
-const networkName = `${composeProjectName}_default`
-const composeArgs = ['compose', '-p', composeProjectName]
+const smokeComposeProjectName = `${composeProjectName}-backend-smoke-${process.pid}`
+const networkName = `${smokeComposeProjectName}_default`
+const composeArgs = ['compose', '-p', smokeComposeProjectName]
+const postgresHostPort =
+  process.env.BACKEND_DOCKER_SMOKE_POSTGRES_PORT ??
+  String(await findOpenPort(new Set([Number(hostPort)])))
 const databaseUrlForHost =
-  process.env.TEST_DATABASE_URL ?? defaultTestDatabaseUrl(defaultPostgresTestPort)
+  process.env.BACKEND_DOCKER_SMOKE_HOST_DATABASE_URL ??
+  defaultTestDatabaseUrl(postgresHostPort)
 const databaseUrlForContainer =
   process.env.BACKEND_DOCKER_SMOKE_DATABASE_URL ??
-  'postgresql://superuser:superpassword@postgres_test:5432/web_app_demo_test?schema=public'
+  'postgresql://superuser:superpassword@postgres_test:5432/dilife_test?schema=public'
 assertTestDatabaseUrl(databaseUrlForHost)
 assertTestDatabaseUrl(databaseUrlForContainer, {
   allowEnvName: 'BACKEND_DOCKER_SMOKE_ALLOW_NON_TEST_DATABASE',
 })
 const dockerEnv = composeEnv({
+  COMPOSE_PROJECT_NAME: smokeComposeProjectName,
   POSTGRES_TEST_PORT: postgresPortFromDatabaseUrl(databaseUrlForHost),
 })
 
@@ -45,7 +50,7 @@ function run(command, args, options = {}) {
   }
 }
 
-function findOpenPort() {
+function findOpenPort(excludedPorts = new Set()) {
   return new Promise((resolve, reject) => {
     const server = createServer()
 
@@ -54,6 +59,10 @@ function findOpenPort() {
       const address = server.address()
       server.close(() => {
         if (address && typeof address === 'object') {
+          if (excludedPorts.has(address.port)) {
+            findOpenPort(excludedPorts).then(resolve, reject)
+            return
+          }
           resolve(address.port)
           return
         }
@@ -77,7 +86,7 @@ async function waitForComposePostgres() {
         '-U',
         'superuser',
         '-d',
-        'web_app_demo_test',
+        'dilife_test',
       ],
       {
         cwd: repositoryRoot,

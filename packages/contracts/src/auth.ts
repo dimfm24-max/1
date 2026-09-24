@@ -1,28 +1,39 @@
 import { z } from 'zod'
 
-const displayNameSchema = z
-  .union([z.string().trim().min(2).max(80), z.literal('')])
-  .optional()
-  .transform((value) => {
-    if (value === '' || value === undefined) return undefined
-    return value
-  })
+import { expoPushTokenSchema } from './notifications'
 
-export const emailSchema = z.string().trim().toLowerCase().email().max(254)
+const displayNameSchema = z
+  .union([
+    z.string().trim().min(2, 'Имя — от 2 знаков').max(80, 'Имя — не длиннее 80 знаков'),
+    z.literal(''),
+  ])
+  .optional()
+  .transform((value) => (value === '' || value === undefined ? undefined : value))
+
+export const emailSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .email('Введи адрес почты целиком, например name@example.com')
+  .max(254, 'Адрес почты слишком длинный')
 
 export const passwordSchema = z
   .string()
-  .min(8, 'Password must be at least 8 characters')
-  .max(128, 'Password must be at most 128 characters')
-
-export const userRoleSchema = z.enum(['user', 'admin'])
+  .min(8, 'Пароль — не короче 8 знаков')
+  .max(128, 'Пароль — не длиннее 128 знаков')
 
 export const userSchema = z.object({
   id: z.string(),
   email: emailSchema,
   displayName: z.string().nullable(),
-  role: userRoleSchema,
   createdAt: z.string().datetime(),
+  /** The address is proven by the link from the confirmation email (§13 of PRD.md). */
+  emailVerified: z.boolean(),
+  /**
+   * The first-run wizard is done (task 07). Optional so a client never breaks on an older
+   * server; a missing value reads as done, so nobody is trapped in the wizard.
+   */
+  onboardingCompleted: z.boolean().optional(),
 })
 
 export const registerRequestSchema = z.object({
@@ -34,6 +45,13 @@ export const registerRequestSchema = z.object({
 export const loginRequestSchema = z.object({
   email: emailSchema,
   password: passwordSchema,
+})
+
+export const socialAuthProviderSchema = z.enum(['apple', 'google'])
+export const socialAuthProviderParamsSchema = z.object({ provider: socialAuthProviderSchema })
+export const socialAuthRequestSchema = z.object({
+  idToken: z.string().trim().min(1).max(4096),
+  displayName: displayNameSchema,
 })
 
 export const passwordResetRequestSchema = z.object({
@@ -49,6 +67,21 @@ export const passwordResetConfirmRequestSchema = z.object({
   password: passwordSchema,
 })
 
+/** Asks for one more confirmation letter for the signed-in person's own address. */
+export const emailVerificationRequestResponseSchema = z.object({
+  accepted: z.literal(true),
+})
+
+/** The token from the letter's link. It works without a session: the letter is often opened on
+ * another device. */
+export const emailVerificationConfirmRequestSchema = z.object({
+  token: z.string().trim().min(43).max(256),
+})
+
+export const emailVerificationConfirmResponseSchema = z.object({
+  verified: z.literal(true),
+})
+
 export const cookieRefreshRequestSchema = z.object({}).strict().optional().default({})
 export const cookieLogoutRequestSchema = z.object({}).strict().optional().default({})
 
@@ -56,43 +89,64 @@ export const tokenRefreshRequestSchema = z.object({
   refreshToken: z.string().min(32),
 })
 
-export const tokenLogoutRequestSchema = tokenRefreshRequestSchema
+export const tokenLogoutRequestSchema = tokenRefreshRequestSchema.extend({
+  expoPushToken: expoPushTokenSchema.optional(),
+  expoPushTokens: z.array(expoPushTokenSchema).max(20).optional(),
+})
 
-export const cookieAuthResponseSchema = z.object({
-  user: userSchema,
-  accessToken: z.string(),
-}).strict()
+export const cookieAuthResponseSchema = z
+  .object({
+    user: userSchema,
+    accessToken: z.string(),
+  })
+  .strict()
 
 export const tokenAuthResponseSchema = cookieAuthResponseSchema.extend({
   refreshToken: z.string(),
 })
 
-export const cookieRefreshResponseSchema = z.object({
-  accessToken: z.string(),
-}).strict()
+export const authSessionIdentitySchema = z
+  .object({
+    userId: z.string().min(1),
+    sessionId: z.string().min(1),
+  })
+  .strict()
 
+export const cookieRefreshResponseSchema = z
+  .object({
+    accessToken: z.string(),
+  })
+  .strict()
 export const tokenRefreshResponseSchema = cookieRefreshResponseSchema.extend({
   refreshToken: z.string(),
 })
 
-export const meResponseSchema = z.object({
-  user: userSchema,
-})
+export const meResponseSchema = z.object({ user: userSchema })
 
 export type UserDto = z.infer<typeof userSchema>
-export type UserRole = z.infer<typeof userRoleSchema>
 export type RegisterRequest = z.input<typeof registerRequestSchema>
 export type RegisterPayload = z.output<typeof registerRequestSchema>
 export type LoginRequest = z.infer<typeof loginRequestSchema>
+export type SocialAuthProvider = z.infer<typeof socialAuthProviderSchema>
+export type SocialAuthRequest = z.input<typeof socialAuthRequestSchema>
+export type SocialAuthPayload = z.output<typeof socialAuthRequestSchema>
 export type PasswordResetRequest = z.infer<typeof passwordResetRequestSchema>
 export type PasswordResetRequestResponse = z.infer<typeof passwordResetRequestResponseSchema>
 export type PasswordResetConfirmRequest = z.infer<typeof passwordResetConfirmRequestSchema>
+export type EmailVerificationRequestResponse = z.infer<
+  typeof emailVerificationRequestResponseSchema
+>
+export type EmailVerificationConfirmRequest = z.infer<typeof emailVerificationConfirmRequestSchema>
+export type EmailVerificationConfirmResponse = z.infer<
+  typeof emailVerificationConfirmResponseSchema
+>
 export type CookieRefreshRequest = z.infer<typeof cookieRefreshRequestSchema>
 export type CookieLogoutRequest = z.infer<typeof cookieLogoutRequestSchema>
 export type TokenRefreshRequest = z.infer<typeof tokenRefreshRequestSchema>
 export type TokenLogoutRequest = z.infer<typeof tokenLogoutRequestSchema>
 export type CookieAuthResponse = z.infer<typeof cookieAuthResponseSchema>
 export type TokenAuthResponse = z.infer<typeof tokenAuthResponseSchema>
+export type AuthSessionIdentity = z.infer<typeof authSessionIdentitySchema>
 export type CookieRefreshResponse = z.infer<typeof cookieRefreshResponseSchema>
 export type TokenRefreshResponse = z.infer<typeof tokenRefreshResponseSchema>
 export type MeResponse = z.infer<typeof meResponseSchema>

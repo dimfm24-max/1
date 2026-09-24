@@ -1,32 +1,37 @@
 import {
-  DashboardSquare01Icon,
-  Home01Icon,
+  Calendar01Icon,
+  ChartLineData01Icon,
+  HourglassIcon,
+  Note01Icon,
+  RepeatIcon,
   Settings01Icon,
-  UserGroupIcon,
-  UserIcon,
+  Sun03Icon,
+  Target02Icon,
+  TaskDaily01Icon,
 } from '@hugeicons/core-free-icons'
 import { useLocation } from '@tanstack/react-router'
-import type { UserDto } from '@web-app-demo/contracts'
-import type { PropsWithChildren } from 'react'
+import type { UserDto } from '@dilife/contracts'
+import type { PropsWithChildren, ReactNode } from 'react'
 
 import {
+  AccountMenu,
   AppSidebar,
   type DashboardNavigationItem,
   SiteHeader,
 } from '@/components/dashboard'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
-import {
-  homePathForRole,
-  navigationItemsForRole,
-} from '@/features/navigation'
+import { homePath, workspaceNavigationItems } from '@/features/navigation'
 
 const iconsByPath = {
-  '/app': Home01Icon,
-  '/app/profile': UserIcon,
+  '/app': Sun03Icon,
+  '/app/day': TaskDaily01Icon,
+  '/app/goals': Target02Icon,
+  '/app/habits': RepeatIcon,
+  '/app/horizon': HourglassIcon,
+  '/app/statistics': ChartLineData01Icon,
+  '/app/notes': Note01Icon,
+  '/app/calendar': Calendar01Icon,
   '/app/settings': Settings01Icon,
-  '/admin': DashboardSquare01Icon,
-  '/admin/users': UserGroupIcon,
-  '/admin/settings': Settings01Icon,
 } as const
 
 function getSidebarDefaultOpen() {
@@ -38,40 +43,56 @@ function getSidebarDefaultOpen() {
   return persistedState !== 'false'
 }
 
+/** The menu item a path belongs to: its own, or the section it sits under (`/app/settings/…`). */
+function activeItemFor(pathname: string) {
+  const items = workspaceNavigationItems()
+  return (
+    items.find((item) => item.to === pathname) ??
+    items.find((item) => item.to !== '/app' && pathname.startsWith(`${item.to}/`))
+  )
+}
+
 export function WorkspaceShell({
+  avatarUrl,
   children,
+  headerActions,
   onLogout,
   user,
 }: PropsWithChildren<{
+  avatarUrl: string | null
+  /** Search and notifications, placed before the profile when they are available. */
+  headerActions?: ReactNode
   onLogout: () => Promise<void>
   user: UserDto
 }>) {
   const pathname = useLocation({ select: (location) => location.pathname })
-  const navigationItems = navigationItemsForRole(user.role)
-  const activeItem = navigationItems.find((item) => item.to === pathname)
-  const homePath = homePathForRole(user.role)
-  const settingsPath = user.role === 'admin' ? '/admin/settings' : '/app/settings'
-  const items: ReadonlyArray<DashboardNavigationItem> = navigationItems.map((item) => ({
-    ...item,
+  const navigationItems = workspaceNavigationItems()
+  const activeItem = activeItemFor(pathname)
+  const toMenuItem = (item: (typeof navigationItems)[number]): DashboardNavigationItem => ({
     icon: iconsByPath[item.to],
-    isActive: item.to === pathname,
-  }))
+    id: item.id,
+    isActive: item.id === activeItem?.id,
+    label: item.label,
+    to: item.to,
+  })
 
   return (
     <SidebarProvider defaultOpen={getSidebarDefaultOpen()}>
       <AppSidebar
-        accountPath={user.role === 'user' ? '/app/profile' : undefined}
         homePath={homePath}
-        items={items}
-        onLogout={onLogout}
-        settingsPath={settingsPath}
-        user={user}
-        workspaceLabel={user.role === 'admin' ? 'Admin workspace' : 'User workspace'}
+        items={navigationItems.filter((item) => item.group === 'main').map(toMenuItem)}
+        serviceItems={navigationItems.filter((item) => item.group === 'service').map(toMenuItem)}
       />
       <SidebarInset>
-        <SiteHeader
-          title={activeItem?.label ?? (user.role === 'admin' ? 'Dashboard' : 'Home')}
-        />
+        <SiteHeader title={activeItem?.label ?? 'DiLife'}>
+          {headerActions}
+          <AccountMenu
+            avatarUrl={avatarUrl}
+            onLogout={onLogout}
+            settingsPath="/app/settings"
+            user={user}
+          />
+        </SiteHeader>
         <div className="flex min-w-0 flex-1 flex-col">{children}</div>
       </SidebarInset>
     </SidebarProvider>

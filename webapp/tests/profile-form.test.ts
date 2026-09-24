@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { updateProfileRequestSchema, type UserDto } from '@web-app-demo/contracts'
+import { updateProfileRequestSchema, type UserDto } from '@dilife/contracts'
 import { expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
@@ -84,8 +84,8 @@ function renderProfilePanel(displayName: string | null) {
     id: 'user_1',
     email: 'user@example.com',
     displayName,
-    role: 'user',
     createdAt: '2026-05-11T00:00:00.000Z',
+    emailVerified: true,
   }
   const auth = { transport: {} } as unknown as AuthContextValue
 

@@ -7,8 +7,9 @@ import { createMemoryRateLimitStore } from '../rate-limit/memory-store'
 import type { RateLimitStoreFactory } from '../rate-limit/port'
 import { errorResponse } from './errors'
 
-type AuthSecurityOptions = {
+type IngressSecurityOptions = {
   bodyLimitBytes: number
+  rateLimitEnabled: boolean
   rateLimitMax: number
   rateLimitWindowSeconds: number
   /** Builds the counter store for the budget. Defaults to a process-local one; see rate-limit/port.ts. */
@@ -30,19 +31,22 @@ type FixedWindowRateLimitOptions<E extends Env> = {
   windowSeconds: number
 }
 
-export function createAuthSecurity(options: AuthSecurityOptions): MiddlewareHandler[] {
-  return [
+export function createIngressSecurity(options: IngressSecurityOptions): MiddlewareHandler[] {
+  const middleware: MiddlewareHandler[] = [
     bodyLimit({
       maxSize: options.bodyLimitBytes,
       onError: (c) => c.json(errorResponse('PAYLOAD_TOO_LARGE', 'Request body is too large'), 413),
     }),
-    createAuthRateLimit(options),
   ]
+  if (options.rateLimitEnabled) {
+    middleware.push(createIngressRateLimit(options))
+  }
+  return middleware
 }
 
-function createAuthRateLimit(options: AuthSecurityOptions): MiddlewareHandler {
+function createIngressRateLimit(options: IngressSecurityOptions): MiddlewareHandler {
   const rateLimit = createFixedWindowRateLimit({
-    errorMessage: 'Too many authentication requests',
+    errorMessage: 'Too many requests',
     key: (c) => clientAddress(c, options),
     max: options.rateLimitMax,
     store: options.store,
@@ -96,7 +100,7 @@ export function createFixedWindowRateLimit<E extends Env>(
 export function clientAddress(
   c: Context,
   options: Pick<
-    AuthSecurityOptions,
+    IngressSecurityOptions,
     'trustProxy' | 'trustedProxyClientIpHeader' | 'trustedProxyClientIpPosition'
   >,
 ) {

@@ -4,22 +4,12 @@ import { spawnSync } from 'node:child_process'
 import { resolve } from 'node:path'
 
 import { createPrisma, type DbClient } from '../src/db'
-import {
-  assertLoginCapableAdmin,
-  bootstrapAdmin,
-  parseAdminSeedConfig,
-} from '../src/modules/users/infrastructure/admin-bootstrap'
 
 type DatabaseDeployDependencies = {
-  assertAdmin(db: DbClient): Promise<void>
   assertMigrationOwnership(
     db: DbClient,
     input: { expectedOwner: string },
   ): Promise<void>
-  bootstrap(
-    db: DbClient,
-    config: ReturnType<typeof parseAdminSeedConfig>,
-  ): Promise<unknown>
   createDatabase(databaseUrl: string): DbClient
   grantRuntimeAccess(
     db: DbClient,
@@ -33,9 +23,7 @@ type DatabaseDeployDependencies = {
 }
 
 const defaultDependencies: DatabaseDeployDependencies = {
-  assertAdmin: assertLoginCapableAdmin,
   assertMigrationOwnership: assertMigrationSchemaOwnership,
-  bootstrap: bootstrapAdmin,
   createDatabase: createPrisma,
   grantRuntimeAccess: grantRuntimeDatabaseAccess,
   log: console.log,
@@ -70,28 +58,16 @@ export async function deployDatabase(
       databaseName: config.databaseName,
       username: config.runtimeDatabaseUser,
     })
-    if (config.seed !== null) {
-      await dependencies.bootstrap(prisma, config.seed)
-    }
-    await dependencies.assertAdmin(prisma)
   } finally {
     await prisma.$disconnect()
   }
-  dependencies.log('Database deployment completed with a login-capable administrator.')
+  dependencies.log('Database deployment completed.')
 }
 
 function databaseDeployConfig(source: Record<string, string | undefined>) {
   const databaseUrl = source.DATABASE_URL?.trim()
   if (!databaseUrl) {
     throw new Error('DATABASE_URL is required for database deployment')
-  }
-
-  const hasSeedEmail = Boolean(source.ADMIN_SEED_EMAIL?.trim())
-  const hasSeedPassword = Boolean(source.ADMIN_SEED_PASSWORD)
-  if (hasSeedEmail !== hasSeedPassword) {
-    throw new Error(
-      'ADMIN_SEED_EMAIL and ADMIN_SEED_PASSWORD must be supplied together for initial deployment',
-    )
   }
 
   return {
@@ -101,10 +77,6 @@ function databaseDeployConfig(source: Record<string, string | undefined>) {
     runtimeDatabaseUser: parseRuntimeDatabaseUser(
       source.DATABASE_RUNTIME_USER,
     ),
-    seed:
-      hasSeedEmail && hasSeedPassword
-        ? parseAdminSeedConfig(source, { requirePassword: true })
-        : null,
   }
 }
 

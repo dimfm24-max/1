@@ -27,7 +27,7 @@ export function passwordConfirmationErrors(
   password: string,
   confirmation: string,
 ): FormError[] | undefined {
-  return password === confirmation ? undefined : [{ message: 'Passwords do not match' }]
+  return password === confirmation ? undefined : [{ message: 'Пароли не совпадают' }]
 }
 
 export function clearFieldError(

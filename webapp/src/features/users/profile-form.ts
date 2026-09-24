@@ -1,4 +1,4 @@
-import { updateProfileRequestSchema, type UpdateProfileRequest } from '@web-app-demo/contracts'
+import { updateProfileRequestSchema, type UpdateProfileRequest } from '@dilife/contracts'
 
 import { toValidationErrors, type ValidationErrors } from '@/features/auth'
 

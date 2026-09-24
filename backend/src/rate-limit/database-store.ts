@@ -21,7 +21,8 @@ export type RateLimitPrisma = Pick<DbClient, '$queryRaw'>
  * A database that cannot be reached fails the request instead of letting it through: the handler
  * behind every limited route needs the same database, so nothing was going to succeed anyway.
  *
- * Rows outlive their window until `auth:sessions:cleanup` deletes the ones past `expires_at`.
+ * Rows outlive their window until the auth cleanup shared by `auth:sessions:cleanup` and the
+ * scheduled `maintenance:process` deletes the ones past `expires_at`.
  */
 export function createDatabaseRateLimitStore(
   prisma: RateLimitPrisma,

@@ -1,0 +1,37 @@
+// Settings: one row of preferences per person. Owned by backend/src/modules/settings; the day,
+// habits, statistics and sharing modules read it through that module's public index.
+
+/// Per-person preferences every part of the app reads: the day, the horizon, the wizard and the
+/// notifications. One row per account, created on first read, so the app never has to answer
+/// "what if it is missing". The table keeps the name it had when the day module owned it.
+model UserSettings {
+  id     String @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  userId String @unique @map("user_id") @db.Uuid
+
+  /// Minutes past midnight the day starts at. A person who works past midnight sets 4:00 and
+  /// their day keeps its shape instead of splitting in two.
+  dayStartMinute Int @default(0) @map("day_start_minute")
+
+  /// What a new task lasts unless told otherwise.
+  defaultTaskMinutes Int @default(30) @map("default_task_minutes")
+
+  /// How the app speaks: friendly, pushing, respectful, neutral. Stored as text rather than an
+  /// enum because the wording is product copy and will change more often than the schema.
+  tone String @default("friendly")
+
+  /// Date of birth and the age the horizon counts to. Both nullable: the horizon is part of the
+  /// product, but it cannot be shown before the person supplies the two numbers it needs.
+  birthDate      DateTime? @map("birth_date") @db.Date
+  lifeExpectancy Int?      @map("life_expectancy")
+
+  /// IANA zone such as Europe/Moscow, reported by the browser and changeable by hand. Null for
+  /// accounts that have not opened the app since zones existed; readers then use the fallback.
+  timeZone String? @map("time_zone")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade, map: "user_settings_user_id_fkey")
+
+  @@map("user_settings")
+}

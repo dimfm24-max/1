@@ -10,8 +10,8 @@ describe('runBackgroundJob', () => {
   test('rejects an unknown job and names the ones that exist', async () => {
     // All three runners take job names from user input or config, so a typo has to fail loudly
     // with the list of real names rather than silently do nothing. Checked against the registry
-    // rather than a copy of it: adding a job must not break this test, or the next person to add
-    // one edits the string instead of reading why it is here.
+    // rather than a copy of it: switching a capability on registers a job, and that must not
+    // break this test - the list is asserted to be complete, not to be a particular list.
     const names = backgroundJobNames()
     const failure = await runBackgroundJob('missing', runtime).catch((error: unknown) => error)
 
@@ -176,14 +176,26 @@ describe('runBackgroundJob', () => {
   test('deletes expired and revoked auth sessions after the retention window', async () => {
     const sessionCalls: unknown[] = []
     const resetTokenCalls: unknown[] = []
+    const verificationTokenCalls: unknown[] = []
+    let pushTokenMaintenanceQueries = 0
     const rateLimitCalls: unknown[] = []
     const cleanupRuntime = {
       env: { SESSION_ABSOLUTE_TTL_DAYS: 90, SESSION_RETENTION_DAYS: 7 },
       prisma: {
+        $executeRaw: async () => {
+          pushTokenMaintenanceQueries += 1
+          return 3
+        },
         authSession: {
           deleteMany: async (input: unknown) => {
             sessionCalls.push(input)
             return { count: 2 }
+          },
+        },
+        emailVerificationToken: {
+          deleteMany: async (input: unknown) => {
+            verificationTokenCalls.push(input)
+            return { count: 4 }
           },
         },
         passwordResetToken: {
@@ -205,6 +217,7 @@ describe('runBackgroundJob', () => {
     await runBackgroundJob('auth:sessions:cleanup', cleanupRuntime, now)
 
     expect(sessionCalls).toHaveLength(1)
+    expect(pushTokenMaintenanceQueries).toBe(2)
     expect(sessionCalls[0]).toMatchObject({
       where: {
         OR: [
@@ -217,10 +230,115 @@ describe('runBackgroundJob', () => {
     expect(resetTokenCalls).toEqual([{
       where: { expiresAt: { lt: now } },
     }])
+    expect(verificationTokenCalls).toEqual([{
+      where: { expiresAt: { lt: now } },
+    }])
     // A rate-limit window nobody can land in any more is dead weight; the job that already sweeps
     // auth's other expiring rows sweeps these too, so shared counters need no runner of their own.
     expect(rateLimitCalls).toEqual([{
       where: { expiresAt: { lt: now } },
     }])
+  })
+
+  test('maintenance runs session cleanup, push-token upkeep, and terminal redaction in one task', async () => {
+    const trashCutoffs: Date[] = []
+    const calls = {
+      cleanup: 0,
+      passwordResetCleanup: 0,
+      pushTokenMaintenanceQueries: 0,
+      rateLimitCleanup: 0,
+      terminalRedactionSelection: 0,
+    }
+    const log = spyOn(console, 'log').mockImplementation(() => {})
+    const maintenanceRuntime = {
+      env: {
+        SESSION_ABSOLUTE_TTL_DAYS: 90,
+        SESSION_RETENTION_DAYS: 7,
+      },
+      prisma: {
+        $executeRaw: async () => {
+          calls.pushTokenMaintenanceQueries += 1
+          return 0
+        },
+        $queryRaw: async () => [{ dueCount: 0n, oldestDueAt: null }],
+        authSession: {
+          deleteMany: async () => {
+            calls.cleanup += 1
+            return { count: 2 }
+          },
+        },
+        emailVerificationToken: { deleteMany: async () => ({ count: 0 }) },
+        passwordResetToken: {
+          deleteMany: async () => {
+            calls.passwordResetCleanup += 1
+            return { count: 0 }
+          },
+        },
+        rateLimitBucket: {
+          deleteMany: async () => {
+            calls.rateLimitCleanup += 1
+            return { count: 0 }
+          },
+        },
+        // googlePlaySubscriptionPurchase: {
+        //   findMany: async () => {
+        //     calls.reconcile += 1
+        //     return []
+        //   },
+        // },
+        pushNotificationOutbox: {
+          findMany: async () => {
+            calls.terminalRedactionSelection += 1
+            return []
+          },
+        },
+        // Repeats and scheduled templates: none to fill in this account.
+        taskSeries: { findMany: async () => [] },
+        dayTemplate: { findMany: async () => [] },
+        // The trash sweep looks for expired rows in each of its six tables.
+        ...Object.fromEntries(
+          ['goal', 'goalStage', 'goalStep', 'task', 'note', 'habit'].map((table) => [
+            table,
+            {
+              findMany: async (args: { where: { deletedAt: { lt: Date } } }) => {
+                trashCutoffs.push(args.where.deletedAt.lt)
+                return []
+              },
+              deleteMany: async () => ({ count: 0 }),
+            },
+          ]),
+        ),
+      },
+    } as unknown as BackendRuntime
+
+    try {
+      await runBackgroundJob(
+        'maintenance:process',
+        maintenanceRuntime,
+        new Date('2026-07-17T10:00:00.000Z'),
+      )
+
+      expect(calls).toEqual({
+        cleanup: 1,
+        passwordResetCleanup: 1,
+        pushTokenMaintenanceQueries: 2,
+        rateLimitCleanup: 1,
+        terminalRedactionSelection: 1,
+      })
+      expect(log).toHaveBeenCalledWith(
+        'Job maintenance:process completed.',
+        expect.objectContaining({
+          terminalNotificationOutboxesRedacted: 0,
+          trashItemsPurged: 0,
+        }),
+      )
+      // Thirty days back from the run, for every kind of thing in the trash.
+      expect(trashCutoffs).toHaveLength(6)
+      expect(new Set(trashCutoffs.map((cutoff) => cutoff.toISOString()))).toEqual(
+        new Set(['2026-06-17T10:00:00.000Z']),
+      )
+    } finally {
+      log.mockRestore()
+    }
   })
 })

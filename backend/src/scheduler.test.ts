@@ -35,13 +35,18 @@ test('the production scheduler runs every required maintenance job in UTC', () =
   expect(schedules).toEqual([
     { expression: '* * * * *', job: 'outbox:drain', timeoutMs: 240_000 },
     {
+      expression: '* * * * *',
+      job: 'notifications:process',
+      timeoutMs: 240_000,
+    },
+    {
       expression: '15 * * * *',
       job: 'uploads:pending:cleanup',
       timeoutMs: 900_000,
     },
     {
-      expression: '0 3 * * *',
-      job: 'auth:sessions:cleanup',
+      expression: '*/15 * * * *',
+      job: 'maintenance:process',
       timeoutMs: 240_000,
     },
   ])

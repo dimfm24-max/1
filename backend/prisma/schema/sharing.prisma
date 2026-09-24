@@ -1,0 +1,42 @@
+// Public sharing: one revocable link per person, and comments left on it. Delete this file and
+// the matching block in base.prisma to remove the capability entirely.
+
+model ShareLink {
+  id     String @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  userId String @unique @map("user_id") @db.Uuid
+
+  /// The address itself. Random and unguessable, because the page opens without signing in:
+  /// knowing the token is the whole of the permission.
+  token String @unique
+
+  /// Which sections the owner chose to show. Absent means hidden, so a section added later is
+  /// private until the owner opts in rather than appearing on every existing link.
+  showsGoals      Boolean @default(true) @map("shows_goals")
+  showsHabits     Boolean @default(false) @map("shows_habits")
+  showsStatistics Boolean @default(false) @map("shows_statistics")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user     User           @relation(fields: [userId], references: [id], onDelete: Cascade, map: "share_links_user_id_fkey")
+  comments ShareComment[]
+
+  @@map("share_links")
+}
+
+model ShareComment {
+  id          String @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  shareLinkId String @map("share_link_id") @db.Uuid
+
+  /// Typed by whoever is leaving the comment. Anyone with the link may comment, so there is no
+  /// account behind this - the name is a claim, not an identity, and the interface says so.
+  authorName String @map("author_name")
+  body       String
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  shareLink ShareLink @relation(fields: [shareLinkId], references: [id], onDelete: Cascade, map: "share_comments_share_link_id_fkey")
+
+  @@index([shareLinkId, createdAt], map: "share_comments_share_link_id_created_at_idx")
+  @@map("share_comments")
+}

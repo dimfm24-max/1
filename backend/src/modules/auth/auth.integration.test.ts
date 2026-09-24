@@ -1,11 +1,19 @@
-import { afterAll, beforeEach, describe, expect, test } from 'bun:test'
+import { randomUUID } from 'node:crypto'
+
+import { afterAll, afterEach, beforeEach, describe, expect, test } from 'bun:test'
 
 import { createApp } from '../../app'
-import { createPrisma } from '../../db'
+import { createPrisma, type DbClient } from '../../db'
 import type { EmailDelivery, EmailMessage } from '../../email'
 import { loadEnv } from '../../env'
 import { drainOptionsFromEnv, drainTaskOutbox } from '../../outbox'
 import type { BackendRuntime } from '../../runtime'
+import {
+  emailVerificationSubject,
+  passwordChangedSubject,
+  passwordResetSubject,
+} from './infrastructure/password-reset-notifier'
+import { socialAuthProviderDeps } from './infrastructure/social-providers'
 
 const databaseUrl = process.env.TEST_DATABASE_URL
 
@@ -22,11 +30,21 @@ maybeDescribe('auth API integration', () => {
   const env = loadEnv(envInput)
   const prisma = createPrisma(databaseUrl!)
   const app = createApp({ env, prisma })
+  const originalVerifyGoogleIdToken = socialAuthProviderDeps.verifyGoogleIdToken
+  const originalVerifyAppleIdToken = socialAuthProviderDeps.verifyAppleIdToken
 
   beforeEach(async () => {
+    socialAuthProviderDeps.verifyGoogleIdToken = originalVerifyGoogleIdToken
+    socialAuthProviderDeps.verifyAppleIdToken = originalVerifyAppleIdToken
     await prisma.taskOutbox.deleteMany()
+    await prisma.pushToken.deleteMany()
     await prisma.authSession.deleteMany()
     await prisma.user.deleteMany()
+  })
+
+  afterEach(() => {
+    socialAuthProviderDeps.verifyGoogleIdToken = originalVerifyGoogleIdToken
+    socialAuthProviderDeps.verifyAppleIdToken = originalVerifyAppleIdToken
   })
 
   afterAll(async () => {
@@ -49,7 +67,6 @@ maybeDescribe('auth API integration', () => {
 
     expect(register.status).toBe(201)
     expect(registerBody.user.email).toBe('user@example.com')
-    expect(registerBody.user.role).toBe('user')
     expect(registerBody.accessToken).toBeString()
     expect(registerBody.refreshToken).toBeString()
     expect(register.headers.get('set-cookie')).toBeNull()
@@ -76,6 +93,7 @@ maybeDescribe('auth API integration', () => {
     expect(refreshBody.accessToken).toBeString()
     expect(refreshBody.refreshToken).toBeString()
     expect(refreshBody.refreshToken).not.toBe(registerBody.refreshToken)
+    expect(refreshBody.session).toBeUndefined()
     expect(refresh.headers.get('set-cookie')).toBeNull()
 
     const meWithPreRefreshAccessToken = await app.request('/api/auth/me', {
@@ -122,6 +140,111 @@ maybeDescribe('auth API integration', () => {
       body: JSON.stringify({ refreshToken: staleRefreshBody.refreshToken }),
     })
     expect(revokedRefresh.status).toBe(401)
+  })
+
+  test('logout removes submitted Expo push tokens under refresh-token authority', async () => {
+    const register = await app.request('/api/auth/token/register', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        email: 'logout-push@example.com',
+        password: 'password123',
+      }),
+    })
+    const registerBody = await register.json()
+    await prisma.pushToken.createMany({
+      data: [
+        {
+          expoPushToken: 'ExponentPushToken[logout-token]',
+          userId: registerBody.user.id,
+        },
+        {
+          expoPushToken: 'ExponentPushToken[logout-old-token]',
+          userId: registerBody.user.id,
+        },
+      ],
+    })
+
+    const logout = await app.request('/api/auth/token/logout', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        expoPushToken: 'ExponentPushToken[logout-token]',
+        expoPushTokens: ['ExponentPushToken[logout-old-token]'],
+        refreshToken: registerBody.refreshToken,
+      }),
+    })
+    expect(logout.status).toBe(204)
+    expect(logout.headers.get('X-Auth-Session-Revoked')).toBe('true')
+    expect(
+      await prisma.pushToken.count({
+        where: {
+          expoPushToken: 'ExponentPushToken[logout-token]',
+        },
+      }),
+    ).toBe(0)
+    expect(
+      await prisma.pushToken.count({
+        where: {
+          expoPushToken: 'ExponentPushToken[logout-old-token]',
+        },
+      }),
+    ).toBe(0)
+  })
+
+  test('logout does not remove push tokens when refresh authority is stale', async () => {
+    const register = await app.request('/api/auth/token/register', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        email: 'stale-logout-push@example.com',
+        password: 'password123',
+      }),
+    })
+    const registerBody = await register.json()
+    await prisma.pushToken.create({
+      data: {
+        expoPushToken: 'ExponentPushToken[stale-logout-token]',
+        userId: registerBody.user.id,
+      },
+    })
+
+    const firstLogout = await app.request('/api/auth/token/logout', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        refreshToken: registerBody.refreshToken,
+      }),
+    })
+    expect(firstLogout.status).toBe(204)
+
+    const staleAuthorityLogout = await app.request('/api/auth/token/logout', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        expoPushToken: 'ExponentPushToken[stale-logout-token]',
+        refreshToken: registerBody.refreshToken,
+      }),
+    })
+    expect(staleAuthorityLogout.status).toBe(204)
+    expect(staleAuthorityLogout.headers.get('X-Auth-Session-Revoked')).toBe('false')
+    expect(
+      await prisma.pushToken.count({
+        where: {
+          expoPushToken: 'ExponentPushToken[stale-logout-token]',
+        },
+      }),
+    ).toBe(1)
   })
 
   test('a password change that cannot queue its notice is rolled back', async () => {
@@ -222,11 +345,14 @@ maybeDescribe('auth API integration', () => {
 
     const drained = await drain()
 
-    // One address exists and one does not: one email, one deliberate skip, no failures.
-    expect(drained).toMatchObject({ done: 1, skipped: 1, terminalFailed: 0, transientFailed: 0 })
-    expect(messages).toHaveLength(1)
+    // One address exists and one does not: one reset email, one deliberate skip, no failures.
+    // The other letter is the address confirmation queued by the registration.
+    expect(drained).toMatchObject({ done: 2, skipped: 1, terminalFailed: 0, transientFailed: 0 })
+    const resetMessages = messages.filter(({ subject }) => subject === passwordResetSubject)
+    expect(resetMessages).toHaveLength(1)
+    expect(messages.filter(({ subject }) => subject === emailVerificationSubject)).toHaveLength(1)
 
-    const resetUrlText = messages[0]!.text
+    const resetUrlText = resetMessages[0]!.text
       .split('\n\n')
       .find((part) => part.startsWith('http'))
     expect(resetUrlText).toBeString()
@@ -256,11 +382,11 @@ maybeDescribe('auth API integration', () => {
     expect(confirmations.map(({ status }) => status).sort()).toEqual([204, 400])
     const successfulConfirm = confirmations.find(({ status }) => status === 204)!
     const rejectedConfirm = confirmations.find(({ status }) => status === 400)!
-    expect(successfulConfirm.headers.get('set-cookie')).toContain('web_app_demo_refresh=')
+    expect(successfulConfirm.headers.get('set-cookie')).toContain('vibe_refresh=')
     expect(successfulConfirm.headers.get('set-cookie')).toContain('Max-Age=0')
     expect((await rejectedConfirm.json()).error.code).toBe('AUTH_PASSWORD_RESET_INVALID')
     await drain()
-    expect(messages.filter(({ subject }) => subject === 'Your password was changed')).toHaveLength(1)
+    expect(messages.filter(({ subject }) => subject === passwordChangedSubject)).toHaveLength(1)
 
     // Nothing is left holding the submitted address once the work is finished.
     const finished = await prisma.taskOutbox.findMany({ where: { type: { startsWith: 'auth:' } } })
@@ -270,7 +396,15 @@ maybeDescribe('auth API integration', () => {
 
     // Draining again must not send a second copy of anything.
     await drain()
-    expect(messages).toHaveLength(2)
+    expect(messages).toHaveLength(3)
+
+    // The reset letter reached the address, so the address counts as confirmed, and the older
+    // confirmation link is spent with it.
+    const resetUser = await prisma.user.findUniqueOrThrow({ where: { email: 'reset@example.com' } })
+    expect(resetUser.emailVerifiedAt).not.toBeNull()
+    expect(
+      await prisma.emailVerificationToken.count({ where: { userId: resetUser.id, usedAt: null } }),
+    ).toBe(0)
 
     const replay = await emailApp.request('/api/auth/password-reset/confirm', {
       method: 'POST',
@@ -304,6 +438,133 @@ maybeDescribe('auth API integration', () => {
     expect(previousRefresh.status).toBe(401)
     expect(previousPassword.status).toBe(401)
     expect(newPassword.status).toBe(200)
+  })
+
+  test('confirms an address with a one-time link that expires and belongs to one account', async () => {
+    const messages: EmailMessage[] = []
+    const emailDelivery: EmailDelivery = {
+      driver: 'console',
+      configured: true,
+      send: async (message) => {
+        messages.push(message)
+      },
+    }
+    const emailApp = createApp({ emailDelivery, env, prisma })
+    const drainRuntime = { emailDelivery, env, prisma } as unknown as BackendRuntime
+    const drain = () => drainTaskOutbox(drainRuntime, { now: new Date() })
+    const register = async (email: string) => {
+      const response = await emailApp.request('/api/auth/token/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password: 'password123' }),
+      })
+      expect(response.status).toBe(201)
+      return (await response.json()) as { accessToken: string; user: { emailVerified: boolean } }
+    }
+    const me = async (accessToken: string) => {
+      const response = await emailApp.request('/api/auth/me', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      })
+      return ((await response.json()) as { user: { emailVerified: boolean } }).user
+    }
+    const resend = (accessToken: string) =>
+      emailApp.request('/api/auth/email-verification/request', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${accessToken}` },
+      })
+    const confirm = (token: string, accessToken?: string) =>
+      emailApp.request('/api/auth/email-verification/confirm', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
+        body: JSON.stringify({ token }),
+      })
+    const lettersTo = (email: string) =>
+      messages.filter(({ subject, to }) => subject === emailVerificationSubject && to === email)
+    const tokenFrom = (message: EmailMessage) => {
+      const link = message.text.match(/https?:\/\/\S+/)?.[0]
+      expect(link).toBeString()
+      const url = new URL(link!)
+      expect(url.pathname).toBe('/verify-email')
+      return new URLSearchParams(url.hash.slice(1)).get('token')!
+    }
+
+    const alice = await register('alice@example.com')
+    const bob = await register('bob@example.com')
+    expect(alice.user.emailVerified).toBe(false)
+    // Registration commits the letter together with the account.
+    expect(
+      await prisma.taskOutbox.count({ where: { type: 'auth:email-verification', status: 'pending' } }),
+    ).toBe(2)
+
+    await drain()
+    expect(lettersTo('alice@example.com')).toHaveLength(1)
+    expect(lettersTo('bob@example.com')).toHaveLength(1)
+    const aliceToken = tokenFrom(lettersTo('alice@example.com')[0]!)
+    const bobToken = tokenFrom(lettersTo('bob@example.com')[0]!)
+    // Only the hash is stored.
+    expect(
+      await prisma.emailVerificationToken.findUnique({ where: { tokenHash: aliceToken } }),
+    ).toBeNull()
+
+    // A second letter right away is refused quietly: the answer is the same, nothing is sent.
+    const early = await resend(alice.accessToken)
+    expect(early.status).toBe(202)
+    expect(await early.json()).toEqual({ accepted: true })
+    await drain()
+    expect(lettersTo('alice@example.com')).toHaveLength(1)
+
+    // Unknown and malformed links are refused with one stable code.
+    const unknown = await confirm('x'.repeat(43))
+    expect(unknown.status).toBe(400)
+    expect((await unknown.json()).error.code).toBe('AUTH_EMAIL_VERIFICATION_INVALID')
+    expect((await confirm('short')).status).toBe(400)
+
+    // A link confirms the account it was sent to, whoever happens to be signed in.
+    const foreign = await confirm(bobToken, alice.accessToken)
+    expect(foreign.status).toBe(200)
+    expect(await foreign.json()).toEqual({ verified: true })
+    expect((await me(alice.accessToken)).emailVerified).toBe(false)
+    expect((await me(bob.accessToken)).emailVerified).toBe(true)
+
+    // One use only.
+    const replay = await confirm(bobToken)
+    expect(replay.status).toBe(400)
+    expect((await replay.json()).error.code).toBe('AUTH_EMAIL_VERIFICATION_INVALID')
+
+    // An expired link does nothing.
+    const aliceUser = await prisma.user.findUniqueOrThrow({ where: { email: 'alice@example.com' } })
+    await prisma.emailVerificationToken.updateMany({
+      where: { userId: aliceUser.id },
+      data: { expiresAt: new Date(Date.now() - 1000), createdAt: new Date(Date.now() - 120_000) },
+    })
+    const expired = await confirm(aliceToken)
+    expect(expired.status).toBe(400)
+    expect((await me(alice.accessToken)).emailVerified).toBe(false)
+
+    // Past the cooldown the banner's button sends a fresh link, and only the newest one works.
+    await prisma.taskOutbox.deleteMany({ where: { type: 'auth:email-verification' } })
+    expect((await resend(alice.accessToken)).status).toBe(202)
+    await drain()
+    expect(lettersTo('alice@example.com')).toHaveLength(2)
+    const freshToken = tokenFrom(lettersTo('alice@example.com')[1]!)
+    expect(freshToken).not.toBe(aliceToken)
+    expect((await confirm(freshToken)).status).toBe(200)
+    expect((await me(alice.accessToken)).emailVerified).toBe(true)
+
+    // A confirmed address asks for nothing more.
+    expect((await resend(alice.accessToken)).status).toBe(202)
+    expect(
+      await prisma.taskOutbox.count({ where: { type: 'auth:email-verification', status: 'pending' } }),
+    ).toBe(0)
+
+    // The request for a new letter needs a session.
+    const anonymous = await emailApp.request('/api/auth/email-verification/request', {
+      method: 'POST',
+    })
+    expect(anonymous.status).toBe(401)
   })
 
   test('a flood of unknown addresses cannot starve a real reset', async () => {
@@ -341,6 +602,9 @@ maybeDescribe('auth API integration', () => {
       body: JSON.stringify({ email: 'victim@example.com', password: 'password123' }),
     })
     expect(register.status).toBe(201)
+    // The registration's own confirmation letter goes first, so the counts below are resets only.
+    expect(await drain()).toMatchObject({ done: 1, terminalFailed: 0, transientFailed: 0 })
+    messages.length = 0
 
     // Sequential on purpose: the ceiling is a read followed by a write, so concurrent requests
     // can overshoot it by their own number. That is accepted; what is pinned here is the ceiling.
@@ -461,6 +725,24 @@ maybeDescribe('auth API integration', () => {
     const refreshedAgain = await refreshAgain.json()
     expect(refreshAgain.status).toBe(200)
 
+    const pushToken = 'ExponentPushToken[reused-session-token]'
+    const pushRegistration = await app.request('/api/notifications/push-token', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${registered.accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        expoPushToken: pushToken,
+        generation: 1,
+        installationId: randomUUID(),
+        installationSecret: randomUUID(),
+      }),
+    })
+    expect(pushRegistration.status).toBe(200)
+    expect(await prisma.pushToken.findUnique({ where: { expoPushToken: pushToken } }))
+      .not.toBeNull()
+
     await prisma.authSession.updateMany({
       where: { user: { email: 'reuse@example.com' } },
       data: { refreshRotatedAt: new Date(Date.now() - 60_000) },
@@ -472,6 +754,8 @@ maybeDescribe('auth API integration', () => {
       body: JSON.stringify({ refreshToken: registered.refreshToken }),
     })
     expect(replay.status).toBe(401)
+    expect(await prisma.pushToken.findUnique({ where: { expoPushToken: pushToken } }))
+      .toBeNull()
 
     const attackerCredential = await app.request('/api/auth/token/refresh', {
       method: 'POST',
@@ -529,7 +813,7 @@ maybeDescribe('auth API integration', () => {
 
     expect(register.status).toBe(201)
     expect(registerBody.refreshToken).toBeUndefined()
-    expect(setCookie).toContain('web_app_demo_refresh=')
+    expect(setCookie).toContain('vibe_refresh=')
     expect(setCookie).toContain('HttpOnly')
     expect(setCookie).toContain('SameSite=Lax')
 
@@ -546,6 +830,7 @@ maybeDescribe('auth API integration', () => {
 
     expect(refresh.status).toBe(200)
     expect(refreshBody.accessToken).toBeString()
+    expect(refreshBody.session).toBeUndefined()
     expect(refreshBody.refreshToken).toBeUndefined()
   })
 
@@ -562,7 +847,7 @@ maybeDescribe('auth API integration', () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Cookie: `web_app_demo_refresh=${refreshToken}`,
+        Cookie: `vibe_refresh=${refreshToken}`,
       },
       body: JSON.stringify({}),
     })
@@ -596,7 +881,7 @@ maybeDescribe('auth API integration', () => {
     expect(register.headers.get('access-control-allow-origin')).toBe('https://web.example.com')
     expect(register.headers.get('access-control-allow-credentials')).toBe('true')
     expect(registerBody.refreshToken).toBeUndefined()
-    expect(setCookie).toContain('web_app_demo_refresh=')
+    expect(setCookie).toContain('vibe_refresh=')
     expect(setCookie).toContain('HttpOnly')
     expect(setCookie).toContain('Secure')
     expect(setCookie).toContain('SameSite=None')
@@ -804,6 +1089,10 @@ maybeDescribe('auth API integration', () => {
     expect(invalidLogin.status).toBe(401)
   })
 
+  // The social sign-in suite lived here commented out. Git still has it - `git log -p` on this
+  // file - and docs/SOCIAL_AUTH.md says what to switch on. A commented test is checked by no
+  // compiler and rots in silence.
+
   test('returns one created user and one conflict for concurrent duplicate registration', async () => {
     const payload = {
       email: 'register-race@example.com',
@@ -863,5 +1152,34 @@ maybeDescribe('auth API integration', () => {
       refreshToken: registerBody.refreshToken as string,
       userId: user.id,
     }
+  }
+
+  // Used only by the parked social suites above; keep it so they restore cleanly
+  // (docs/SOCIAL_AUTH.md).
+  function gateNextSessionCreate() {
+    let markReached: () => void = () => undefined
+    const reached = new Promise<void>((resolve) => {
+      markReached = resolve
+    })
+    let releaseGate: () => void = () => undefined
+    const barrier = new Promise<void>((resolve) => {
+      releaseGate = resolve
+    })
+    let gated = false
+    const db = prisma.$extends({
+      query: {
+        authSession: {
+          async create({ args, query }) {
+            if (!gated) {
+              gated = true
+              markReached()
+              await barrier
+            }
+            return query(args)
+          },
+        },
+      },
+    }) as unknown as DbClient
+    return { db, reached, release: releaseGate }
   }
 })

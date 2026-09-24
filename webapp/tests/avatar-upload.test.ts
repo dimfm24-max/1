@@ -1,8 +1,9 @@
 import { afterEach, describe, expect, mock, test } from 'bun:test'
-import { AVATAR_MAX_BYTES, type UploadTicket } from '@web-app-demo/contracts'
+import { AVATAR_MAX_BYTES, type UploadTicket } from '@dilife/contracts'
 
 import {
   AvatarUploadError,
+  classifyAvatarFile,
   describeAvatarFile,
   resolveAvatarContentType,
   uploadAvatarObject,
@@ -123,5 +124,18 @@ describe('uploadAvatarObject', () => {
       { reason: 'size-changed' },
     )
     expect(called).toBe(false)
+  })
+})
+
+describe('classifyAvatarFile', () => {
+  test('sends JPEG and PNG as they are and redraws WebP and HEIC as JPEG', () => {
+    expect(classifyAvatarFile(file('a.jpg', 'image/jpeg', 100))).toBe('as-is')
+    expect(classifyAvatarFile(file('a.png', 'image/png', 100))).toBe('as-is')
+    expect(classifyAvatarFile(file('a.webp', 'image/webp', 100))).toBe('convert')
+    expect(classifyAvatarFile(file('a.heic', 'image/heic', 100))).toBe('convert')
+    // A phone may hand over a HEIC with no type at all; the extension decides then.
+    expect(classifyAvatarFile(file('IMG_1.HEIC', '', 100))).toBe('convert')
+    expect(classifyAvatarFile(file('a.gif', 'image/gif', 100))).toBe('unsupported')
+    expect(classifyAvatarFile(file('a.svg', 'image/svg+xml', 100))).toBe('unsupported')
   })
 })

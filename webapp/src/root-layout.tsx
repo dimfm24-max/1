@@ -1,5 +1,12 @@
 import { Outlet } from '@tanstack/react-router'
 
+import { Toaster } from '@/components/ui/sonner'
+
 export function RootLayout() {
-  return <Outlet />
+  return (
+    <>
+      <Outlet />
+      <Toaster position="bottom-center" />
+    </>
+  )
 }

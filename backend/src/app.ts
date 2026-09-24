@@ -1,5 +1,5 @@
 // Must run before imports that construct schemas. Keep the auto-compile side effect backend-only:
-// browser runtimes should not invoke eval-like code generation.
+// browser and Expo runtimes should not invoke eval-like code generation.
 import 'zod/compile'
 
 import { OpenAPIHono } from '@hono/zod-openapi'
@@ -12,8 +12,17 @@ import { disabledEmailDelivery, type EmailDelivery } from './email'
 import type { AppEnv } from './env'
 import { errorResponse, handleError, validationErrorHook } from './http/errors'
 import { createReadinessProbe } from './http/readiness'
-import { createAuthSecurity, createFixedWindowRateLimit } from './http/security'
+import { createFixedWindowRateLimit, createIngressSecurity } from './http/security'
 import { createAuthModule, type AuthHttpEnv } from './modules/auth'
+import { createDayModule } from './modules/day'
+import { createGoalsModule } from './modules/goals'
+import { createHabitsModule } from './modules/habits'
+import { createNotesModule } from './modules/notes'
+import { createSharingModule } from './modules/sharing'
+import { createStatisticsModule } from './modules/statistics'
+import { createNotificationsModule } from './modules/notifications'
+import { createSettingsModule } from './modules/settings'
+import { createTrashModule } from './modules/trash'
 import { createUploadsModule } from './modules/uploads'
 import { createUsersModule } from './modules/users'
 import { createRateLimitStores } from './rate-limit'
@@ -34,42 +43,72 @@ type CreateAppOptions = {
    * it at a temporary directory instead of the configured root.
    */
   privateStorage?: PrivateStorageRuntime
+  /**
+   * The clock every "which day is it for this person" answer is read from. Injectable so tests
+   * can stand on a chosen day; production uses the system clock.
+   */
+  clock?: { now(): Date }
 }
 
 export function createApp({
   backgroundTasks = createBackgroundTasks(),
+  clock,
   emailDelivery = disabledEmailDelivery,
   env,
   prisma,
   privateStorage,
 }: CreateAppOptions) {
   const storage = privateStorage ?? createPrivateStorage(env)
-  const auth = createAuthModule({ db: prisma, emailDelivery, env })
+  const notifications = createNotificationsModule({ db: prisma, env })
+  const auth = createAuthModule({
+    db: prisma,
+    emailDelivery,
+    env,
+    logoutCleanup: notifications.logoutCleanup,
+  })
   // One store per policy, in memory or in PostgreSQL as RATE_LIMIT_STORE says; the middleware
   // never learns which.
   const rateLimitStore = createRateLimitStores(env, prisma)
-  const adminUsersReadRateLimit = createFixedWindowRateLimit<AuthHttpEnv>({
-    errorMessage: 'Too many admin user directory requests',
-    key: (c) => c.var.user.id,
-    max: env.ADMIN_USERS_READ_RATE_LIMIT_MAX,
-    store: rateLimitStore('admin-users-read'),
-    windowSeconds: env.ADMIN_USERS_READ_RATE_LIMIT_WINDOW_SECONDS,
-  })
   const users = createUsersModule({
-    adminUsersReadRateLimit,
     db: prisma,
-    requireAdmin: auth.requireAdmin,
     requireAuth: auth.requireAuth,
   })
+  const settings = createSettingsModule({ clock, db: prisma, requireAuth: auth.requireAuth })
+  const goals = createGoalsModule({
+    clock,
+    db: prisma,
+    requireAuth: auth.requireAuth,
+    today: (userId) => settings.service.today(userId),
+  })
+  const day = createDayModule({
+    db: prisma,
+    requireAuth: auth.requireAuth,
+    settings: settings.service,
+  })
+  const habits = createHabitsModule({
+    db: prisma,
+    requireAuth: auth.requireAuth,
+    settings: settings.service,
+  })
+  const statistics = createStatisticsModule({
+    db: prisma,
+    requireAuth: auth.requireAuth,
+    settings: settings.service,
+  })
+  const notes = createNotesModule({ db: prisma, requireAuth: auth.requireAuth })
+  const sharing = createSharingModule({
+    db: prisma,
+    requireAuth: auth.requireAuth,
+    settings: settings.service,
+  })
+  const trash = createTrashModule({ clock, db: prisma, requireAuth: auth.requireAuth })
   const uploads = createUploadsModule({
     backgroundTasks,
     db: prisma,
     requireAuth: auth.requireAuth,
     storage: storage.storage,
   })
-  const app = new OpenAPIHono<AuthHttpEnv>({
-    defaultHook: validationErrorHook,
-  })
+  const app = new OpenAPIHono<AuthHttpEnv>({ defaultHook: validationErrorHook })
   app.openAPIRegistry.registerComponent('securitySchemes', 'BearerAuth', {
     type: 'http',
     scheme: 'bearer',
@@ -95,28 +134,44 @@ export function createApp({
       maxAge: 600,
     }),
   )
-  // Signing in and managing an account are two budgets of the same size, keyed by client address.
-  const authSecurity = (policy: 'auth' | 'account') =>
-    createAuthSecurity({
-      bodyLimitBytes: env.AUTH_BODY_LIMIT_BYTES,
-      rateLimitMax: env.AUTH_RATE_LIMIT_MAX,
-      rateLimitWindowSeconds: env.AUTH_RATE_LIMIT_WINDOW_SECONDS,
-      store: rateLimitStore(policy),
-      trustProxy: env.TRUST_PROXY,
-      trustedProxyClientIpHeader: env.TRUSTED_PROXY_CLIENT_IP_HEADER,
-      trustedProxyClientIpPosition: env.TRUSTED_PROXY_CLIENT_IP_POSITION,
-    })
-  for (const middleware of authSecurity('auth')) {
+  // Signing in and the signed-in data API are two budgets keyed by client address: a small one
+  // for signing in, a larger one for everyday work (API_RATE_LIMIT_MAX).
+  // INGRESS_RATE_LIMIT_PROVIDER says whether this process limits at all; RATE_LIMIT_STORE says
+  // where each budget counts when it does.
+  const publicWriteSecurity = {
+    bodyLimitBytes: env.AUTH_BODY_LIMIT_BYTES,
+    rateLimitEnabled: env.INGRESS_RATE_LIMIT_PROVIDER === 'local',
+    rateLimitMax: env.AUTH_RATE_LIMIT_MAX,
+    rateLimitWindowSeconds: env.AUTH_RATE_LIMIT_WINDOW_SECONDS,
+    trustProxy: env.TRUST_PROXY,
+    trustedProxyClientIpHeader: env.TRUSTED_PROXY_CLIENT_IP_HEADER,
+    trustedProxyClientIpPosition: env.TRUSTED_PROXY_CLIENT_IP_POSITION,
+  }
+  for (const middleware of createIngressSecurity({
+    ...publicWriteSecurity,
+    store: rateLimitStore('auth'),
+  })) {
     app.use('/api/auth/*', middleware)
   }
-  for (const middleware of authSecurity('account')) {
+  for (const middleware of createIngressSecurity({
+    ...publicWriteSecurity,
+    rateLimitMax: env.API_RATE_LIMIT_MAX,
+    store: rateLimitStore('account'),
+  })) {
     app.use('/api/users/*', middleware)
-    app.use('/api/admin/*', middleware)
+    app.use('/api/settings/*', middleware)
+    app.use('/api/goals/*', middleware)
+    app.use('/api/day/*', middleware)
+    app.use('/api/habits/*', middleware)
+    app.use('/api/statistics/*', middleware)
+    app.use('/api/notes/*', middleware)
+    app.use('/api/share/*', middleware)
     app.use('/api/uploads/*', middleware)
+    app.use('/api/trash/*', middleware)
   }
   app.get('/', (c) => {
     return c.json({
-      name: 'web_app_demo backend',
+      name: 'dilife backend',
       status: 'ok',
     })
   })
@@ -145,11 +200,18 @@ export function createApp({
       ? c.json({ status: 'ok' }, 200)
       : c.json({ status: 'unavailable' }, 503)
   })
-
   app.route('/api/auth', auth.routes)
   app.route('/api/users', users.userRoutes)
-  app.route('/api/admin', users.adminRoutes)
+  app.route('/api/settings', settings.routes)
+  app.route('/api/goals', goals.routes)
+  app.route('/api/day', day.routes)
+  app.route('/api/habits', habits.routes)
+  app.route('/api/statistics', statistics.routes)
+  app.route('/api/notes', notes.routes)
+  app.route('/api/share', sharing.routes)
+  app.route('/api/notifications', notifications.createRoutes(auth.authenticateAccessToken))
   app.route('/api/uploads', uploads.routes)
+  app.route('/api/trash', trash.routes)
 
   // Only the filesystem driver needs the backend to serve the URLs it signs. With an S3 driver
   // the browser uploads straight to the bucket and there is nothing to mount here.
@@ -159,15 +221,10 @@ export function createApp({
 
   app.doc('/openapi.json', {
     openapi: '3.0.0',
-    info: {
-      title: 'web_app_demo API',
-      version: '1.0.0',
-    },
+    info: { title: 'dilife API', version: '1.0.0' },
   })
-
   app.notFound((c) => c.json(errorResponse('NOT_FOUND', 'Route not found'), 404))
   app.onError(handleError)
-
   return app
 }
 

@@ -16,7 +16,7 @@ The dependency audit needs package registry access. Backend integration needs Do
 - Build contracts: properties of the completed `dist/`, such as CSS isolation and a separate hero scene. See [build contracts](#build-contracts).
 - Backend integration: the real application and HTTP with isolated PostgreSQL. Check sign-in, permissions, profile storage, errors, and concurrency.
 - Playwright: important successful paths through the real webapp and backend.
-- Maestro: successful native paths in the Expo application on the `mobile` branch.
+- Maestro: successful native paths in an installed Expo development build.
 
 ## Task checks
 
@@ -36,6 +36,7 @@ bun run test:contracts
 bun run test:backend
 bun run test:backend:integration
 bun run test:webapp
+bun run test:mobile
 bun run --cwd backend prisma:validate
 bun run smoke:backend:docker
 
@@ -53,9 +54,11 @@ Files in `backend/src` and `backend/scripts` are discovered automatically. `back
 | `*.live.test.ts` | `test:live` | An external service or account that the runner does not start |
 | Other `*.test.ts` and `*.test.mjs` files | `test:unit` | No external services |
 
+Tests for a disabled capability have `@parked-test` in the opening comment. They do not run until the marker is removed. No suite currently uses it. Mobile uses no marker.
+
 Unit and integration runners accept exact discovered paths relative to `backend/` and the `-t`/`--test-name-pattern` filter. Without filters, they run the full suite.
 
-Integration allows 30 seconds per test instead of Bun's default 5 seconds. Password hashing on a busy machine can take more than 5 seconds. A test body can continue after a timeout and interfere with cleanup for the next test. For a focused run, change the timeout with `--timeout=<ms>`.
+Integration allows 3 minutes per test instead of Bun's default 5 seconds. Password hashing on a busy machine can take more than 5 seconds. A test body can continue after a timeout and interfere with cleanup for the next test. For a focused run, change the timeout with `--timeout=<ms>`.
 
 `bun run test:backend:unit` does not require Docker. The root `bun run test` requires it because it includes integration tests. Do not put a live test in the unit suite. Run it explicitly:
 
@@ -66,11 +69,11 @@ bun run --cwd backend test:live  # checks configured external services
 
 `backend/scripts/test-live.mjs` defines the storage, Postbox, and Resend suites and their required variables. It runs fully configured suites. Partial configuration produces an error with the missing variable names. The command also fails if no suite is configured. See [STORAGE](STORAGE.md) and [EMAIL](EMAIL.md).
 
-`packages/contracts/src/*.test.ts` checks request, response, and error contracts for backend and webapp. Webapp unit tests in `webapp/tests` check refresh/retry and `AuthProvider` state where full E2E tests would be expensive and fragile.
+`packages/contracts/src/*.test.ts` checks request, response, and error contracts for backend, webapp, and mobile. Client unit tests in each client's `tests/` check refresh/retry. Webapp also checks `AuthProvider` state where full E2E tests would be expensive and fragile.
 
 The provider test uses the real `react-dom/client`, React `act`, and small test doubles for the root container and `window`. The repository has no jsdom or happy-dom. Extend the existing test doubles. Do not add a DOM library. Check components that produce HTML, such as profile form validation, with `react-dom/server` and `renderToStaticMarkup`. The `mobile` branch extends the same model for Expo.
 
-Backend tests are next to their modules. Integration checks authentication and users/admin RBAC through the application and transport with real PostgreSQL.
+Backend tests are next to their modules. Integration checks authentication, profiles, and notifications through the application and transport with real PostgreSQL. Coverage includes session rotation, permissions, profiles, session revocation, seed idempotency, ownership, outbox retries, receipts, and error formats.
 
 Each managed run creates a separate `${COMPOSE_PROJECT_NAME}-integration-<run>`. It starts `postgres_test`, waits for readiness, applies migrations, and runs the selected files. Without a filter, it runs all discovered integration tests.
 
@@ -82,9 +85,9 @@ Each managed run creates a separate `${COMPOSE_PROJECT_NAME}-integration-<run>`.
 
 Two runs from the same checkout get different Compose projects but the same derived port. If the port is occupied, the second run fails without stopping the first. To use another run's managed database, enable skip and supply its test URL.
 
-Integration and Docker smoke require a database name with `_test` by default. A separate variable permits an intentional exception. This protects `web_app_demo` from test writes. See [LOCAL_DATABASE.md](LOCAL_DATABASE.md) for connection and reset instructions.
+Integration and Docker smoke require a database name with `_test` by default. A separate variable permits an intentional exception. This protects `dilife` from test writes. See [LOCAL_DATABASE.md](LOCAL_DATABASE.md) for connection and reset instructions.
 
-Docker smoke uses the repository Compose project and `postgres_test`. It selects a free backend port, builds the backend, waits for `/health/ready`, and checks authentication with the database. Cleanup removes the smoke container, test database service, and test database volume.
+Docker smoke creates a separate Compose project and port. It builds the backend and starts it with its own `postgres_test`. It waits for `/health/ready`, checks token authentication with the database, and removes only its own containers, network, and volume.
 
 No runner uses `docker compose down`. That command is not limited to one service and can remove upload storage. Runners target only the test database service and its volume for removal.
 
@@ -124,7 +127,7 @@ The E2E script:
 
 - Runs `docker compose up -d postgres_test` unless `E2E_SKIP_DOCKER=1` is set.
 - Selects ports based on the repository. If occupied, it selects the nearest free ports.
-- Generates Prisma, applies migrations, and creates an E2E administrator. The administrator's password does not enter the browser build.
+- Generates Prisma, applies migrations, and seeds the E2E account. Its password does not enter the browser build.
 - Passes `TEST_DATABASE_URL` to the backend as `DATABASE_URL`.
 - Starts the backend on `E2E_BACKEND_PORT` and Vite on `E2E_WEB_PORT`.
 - Removes only `postgres_test` and its volume after the run unless `E2E_KEEP_DOCKER=1` is set.
@@ -137,12 +140,12 @@ The avatar scenario uses filesystem storage by default, with no extra container.
 bun run e2e:webapp:s3
 ```
 
-Use this check for storage changes or an explicit storage audit. It does not repeat the other authentication and RBAC scenarios. Extra arguments can set Playwright options, but the test file remains `avatar.spec.ts`.
+Use this check for storage changes or an explicit storage audit. It does not repeat the other authentication scenarios. Extra arguments can set Playwright options, but the test file remains `avatar.spec.ts`.
 
 Variables:
 
 ```bash
-TEST_DATABASE_URL="postgresql://superuser:superpassword@localhost:<test-port>/web_app_demo_test?schema=public"
+TEST_DATABASE_URL="postgresql://superuser:superpassword@localhost:<test-port>/dilife_test?schema=public"
 POSTGRES_TEST_PORT=<test-port>
 E2E_BACKEND_PORT=<backend-port>
 E2E_WEB_PORT=<web-port>
@@ -163,13 +166,124 @@ bun run --cwd webapp e2e:ui
 
 ## Mobile Maestro E2E
 
-The `master` branch has no working Expo application or Maestro runner. See the `mobile` branch for setup, dev client, stable React Native `testID` values, and `bun run --cwd mobile e2e:maestro:audit`.
+Scenario: `mobile/.maestro/flows/auth-smoke.yaml`. Runner: `mobile/scripts/e2e/run-maestro.mjs`.
+
+Install the CLI:
+
+```bash
+bun run --cwd mobile e2e:maestro:setup
+export PATH="$HOME/.maestro/bin:$PATH"
+maestro --version
+```
+
+The script uses the official installer and a pinned Maestro version. To override it explicitly, use `MAESTRO_VERSION=<version> bun run --cwd mobile e2e:maestro:setup`. The runner requires `2.4.0+`. Change `MAESTRO_MIN_VERSION` only when verifying a compatible new policy.
+
+Requirements:
+
+- Java 17+.
+- Xcode and iOS Simulator, or Android Studio and an emulator.
+- An installed Expo development build with `bundleIdentifier/package` set to `com.dilife.app`. Expo Go is not sufficient.
+- A backend with Docker Compose `postgres_test`, reachable through the Metro build's `EXPO_PUBLIC_API_URL`.
+- An `E2E_API_HEALTH_URL` reachable from the computer, for example `http://<LAN_IP>:3000/health`.
+- A reachable Metro server at `MAESTRO_DEV_SERVER_URL`, for example `http://<LAN_IP>:8081`.
+- `EXPO_PUBLIC_E2E=1` when starting Metro and the runner. It disables push registration and other integrations that interfere with E2E. The scenario uses the regular password visibility button before entering the password.
+
+Create `backend/.env` from `backend/.env.example` if it is missing. For a custom port, keep `POSTGRES_TEST_PORT` and `TEST_DATABASE_URL` consistent. Start the test database and API in a separate terminal. LAN addresses work for simulators and physical devices:
+
+```bash
+docker compose version
+docker info
+docker compose --env-file backend/.env up -d postgres_test
+export TEST_DATABASE_URL="postgresql://superuser:superpassword@localhost:54330/dilife_test?schema=public"
+export LAN_IP=<your-machine-lan-ip>
+export BACKEND_PORT=3000
+export METRO_PORT=8081
+DATABASE_URL="$TEST_DATABASE_URL" bun run --cwd backend prisma:deploy
+PORT="$BACKEND_PORT" DATABASE_URL="$TEST_DATABASE_URL" JWT_SECRET="mobile-e2e-secret-at-least-thirty-two-characters" CORS_ORIGINS="http://$LAN_IP:$METRO_PORT,http://localhost:$METRO_PORT" COOKIE_SECURE=false bun run --cwd backend start:raw
+```
+
+The port in `TEST_DATABASE_URL` and `DATABASE_URL` must match `POSTGRES_TEST_PORT`. Maestro does not start the backend. The installed application must already have the correct API URL.
+
+In another terminal, start Metro for the installed development build:
+
+```bash
+cd mobile
+export LAN_IP=<your-machine-lan-ip>
+export BACKEND_PORT=3000
+export METRO_PORT=8081
+EXPO_PUBLIC_E2E=1 EXPO_PUBLIC_API_URL="http://$LAN_IP:$BACKEND_PORT" bunx expo start --dev-client --host lan --port "$METRO_PORT"
+```
+
+Build examples:
+
+```bash
+cd mobile
+EXPO_PUBLIC_API_URL=http://<LAN_IP>:3000 bunx eas-cli build --profile development --platform ios
+EXPO_PUBLIC_API_URL=http://<LAN_IP>:3000 bunx eas-cli build --profile development --platform android
+```
+
+Run the smoke scenario:
+
+```bash
+EXPO_PUBLIC_E2E=1 MAESTRO_DEV_SERVER_URL=http://<LAN_IP>:8081 E2E_API_HEALTH_URL=http://<LAN_IP>:3000/health bun run --cwd mobile e2e:maestro
+```
+
+Available options:
+
+```bash
+MAESTRO_DEVICE="iPhone 16 Pro"
+MAESTRO_APP_ID=com.dilife.app
+MAESTRO_DEV_SERVER_URL=http://<LAN_IP>:8081
+MAESTRO_DEV_CLIENT_SCHEME=exp+mobile
+MAESTRO_MIN_VERSION=2.4.0
+E2E_DISPLAY_NAME="Mobile E2E User"
+E2E_EMAIL="mobile-e2e@example.com"
+E2E_PASSWORD=password123
+E2E_API_HEALTH_URL=http://<LAN_IP>:3000/health
+EXPO_PUBLIC_E2E=1
+MAESTRO_SKIP_API_PREFLIGHT=1
+MAESTRO_SKIP_METRO_PREFLIGHT=1
+MAESTRO_SKIP_E2E_ENV_PREFLIGHT=1
+MAESTRO_DRY_RUN=1
+```
+
+`testID` selectors are in `mobile/src/constants/testIds.ts`. Add stable IDs for new scenarios. Check data and completed actions according to [AGENTS.md](../AGENTS.md#testing-and-verification). Auth smoke checks registration, opening the account area, session restoration after restart, and logout.
+
+Before a product scenario, check the required data through the backend API. For example, an order needs an available product. Missing data must produce a clear setup error before the UI starts.
+
+Before changing Maestro startup, selectors, or E2E behavior, run:
+
+```bash
+bun run --cwd mobile e2e:maestro:audit
+```
+
+The audit checks the runner and active authentication scenario. It rejects `hideKeyboard`, coordinate taps, missing dev-client `openLink`, an outdated `.maestro/.env.example`, and password entry that bypasses the user's visibility button. Inactive capabilities are outside the audit scope.
+
+The standard path uses Expo dev client. Native `ios` and `android` directories are not stored in Git. If the product starts to own these directories, it can use a separately built iOS E2E application. That path requires a separate simulator bundle ID, a runner that builds and installs the application, and shared startup with `launchApp.clearState/clearKeychain`. It also requires separate ports, a typed seed, backend checks after the scenario, and a simulator lock on the computer. Metro and dev client are not needed for that path.
+
+### Expo Dev Client and Maestro limitations
+
+- Use an installed development build. Expo Go can open its own launcher instead of the application.
+- `launchApp` only clears the initial state. Then `openLink` opens `exp+<slug>://expo-development-client/?url=<metro-url>&disableOnboarding=1`. After `stopApp`, open the same link again.
+- The device must reach Metro and the backend. Prefer `EXPO_PUBLIC_API_URL=http://<LAN_IP>:<BACKEND_PORT>`, `bunx expo start --dev-client --host lan --port <METRO_PORT>`, and `MAESTRO_DEV_SERVER_URL=http://<LAN_IP>:<METRO_PORT>`.
+- `secureTextEntry` can prevent input on iOS even when Maestro reports success. First tap the regular password visibility button. Each application start begins with the password hidden.
+- Use `keyboardDismissMode="on-drag"`, scrolling, or a tap on a stable static element instead of unreliable `hideKeyboard`.
+- Keep tap targets around `44–48pt` or larger. Small `Pressable` and checkbox targets can miss taps.
+- For a custom checkbox, do not rely on `checked: true`. The accessible value can be `checkbox, checked` while the hierarchy field is false. Check a stable visible or accessible state.
+- Before an important button, set `scrollUntilVisible` options to `visibilityPercentage: 100` and `centerElement: true`.
+- After removing starter routes, update native tabs, web tabs, and string `href` values. For dynamic routes or query parameters, use object navigation with Expo Router type checks.
+- Before the UI starts, check backend availability, authentication and session prerequisites, and seed data. On failure, stop or skip the scenario with a clear message.
 
 ## Dependency updates
 
 Root package.json `overrides` set minimum safe versions for transitive packages that are not imported directly. After an update, remove constraints one at a time. Keep them removed if `bun run audit` passes. `bun update` respects the constraints.
 
 If no fix is available, add a narrow temporary `temporaryAuditExceptions` entry in [scripts/dependency-audit.mjs](../scripts/dependency-audit.mjs). The entry records the vulnerability, lockfile versions, direct consumers, projects, and expiry date. It does not permit a direct application dependency or import.
+
+The mobile exceptions cover three advisories:
+
+- `image-size@1.2.1` in the Metro build: `GHSA-w3rx-r6r6-pgpr`, `GHSA-5p2g-fcmc-qvqq`. Review by 2026-09-24. See the [upstream issue](https://github.com/github/advisory-database/issues/9028).
+- `decode-uri-component@0.2.2` through `query-string` in Expo Router deep links: `GHSA-vcc3-ghjq-m6fr`. Review by 2026-12-05. The fixed `0.5.0` is ESM-only and incompatible with the `^0.2.2` requirement. An override breaks Metro.
 
 Remove exceptions after a compatible fix is available.
 
@@ -185,3 +299,11 @@ The repository contract is described above. Check runner behavior against the cu
 - [Playwright CLI](https://playwright.dev/docs/test-cli) and [browser installation](https://playwright.dev/docs/browsers)
 - [Docker Compose](https://docs.docker.com/compose/)
 - [Official PostgreSQL image](https://hub.docker.com/_/postgres)
+
+[Maestro documentation](https://docs.maestro.dev/)
+
+[Maestro CLI installation](https://docs.maestro.dev/maestro-cli/how-to-install-maestro-cli) [First Maestro test](https://docs.maestro.dev/maestro-cli/run-your-first-test-with-the-maestro-cli)
+
+[Maestro selectors](https://docs.maestro.dev/api-reference/selectors,) [launchApp](https://docs.maestro.dev/reference/commands-available/launchapp,) [openLink](https://docs.maestro.dev/api-reference/commands/openlink,) [extendedWaitUntil](https://docs.maestro.dev/reference/commands-available/extendedwaituntil,) [scrollUntilVisible](https://docs.maestro.dev/reference/commands-available/scrolluntilvisible)
+
+[Expo development workflows](https://docs.expo.dev/develop/development-builds/development-workflows/)

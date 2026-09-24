@@ -1,0 +1,70 @@
+// Habits: a repeating action and the days it was actually done. Delete this file and the
+// matching block in base.prisma to remove the capability entirely.
+
+enum HabitSchedule {
+  /// Every day, no exceptions.
+  daily
+  /// Only on the chosen weekdays.
+  weekdays
+  /// Every N days from the start date: through a day, every third day.
+  interval
+
+  @@map("habit_schedule")
+}
+
+model Habit {
+  id     String @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  userId String @map("user_id") @db.Uuid
+
+  title    String
+  schedule HabitSchedule @default(daily)
+
+  /// Which weekdays, as 0-6 with Sunday at 0, for the `weekdays` schedule. Empty otherwise.
+  weekdays Int[] @default([])
+
+  /// The gap for an `interval` schedule, counted from `startedOn`.
+  intervalDays Int @default(1) @map("interval_days")
+
+  /// The first day the habit is expected. Also the anchor an interval counts from, so changing
+  /// the schedule later cannot silently reinterpret the days already recorded.
+  startedOn DateTime @map("started_on") @db.Date
+
+  /// Set when the person stops the habit. The rows stay: a habit that ran for three months and
+  /// ended is part of the history, not a mistake to erase.
+  archivedAt DateTime? @map("archived_at")
+
+  color    String?
+  position Int
+
+  /// In the trash since this moment, with its marks kept; purged 30 days later (task 11).
+  deletedAt DateTime? @map("deleted_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user  User           @relation(fields: [userId], references: [id], onDelete: Cascade, map: "habits_user_id_fkey")
+  marks HabitMark[]
+
+  @@index([userId, position], map: "habits_user_id_position_idx")
+  @@index([deletedAt], map: "habits_deleted_at_idx")
+  @@map("habits")
+}
+
+/// One day the habit was done. Absence means not done - a day is never written as a failure,
+/// because the schedule already says which days were expected.
+model HabitMark {
+  id      String @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  habitId String @map("habit_id") @db.Uuid
+  userId  String @map("user_id") @db.Uuid
+
+  markedOn DateTime @map("marked_on") @db.Date
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  habit Habit @relation(fields: [habitId], references: [id], onDelete: Cascade, map: "habit_marks_habit_id_fkey")
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade, map: "habit_marks_user_id_fkey")
+
+  @@unique([habitId, markedOn], map: "habit_marks_habit_id_marked_on_key")
+  @@index([userId, markedOn], map: "habit_marks_user_id_marked_on_idx")
+  @@map("habit_marks")
+}

@@ -4,8 +4,8 @@ import {
   composeEnv,
   composeProjectName,
   defaultDatabaseUrl,
-  e2eAdminEmail,
-  e2eAdminPassword,
+  e2eUserEmail,
+  e2eUserPassword,
   postgresTestService,
   repositoryRoot,
 } from './env'
@@ -60,15 +60,13 @@ export default async function globalSetup() {
 
   if (process.env.E2E_SKIP_DOCKER !== '1') {
     run('docker', [...composeArgs, 'up', '-d', postgresTestService], env)
-    await waitForComposePostgres(postgresTestService, 'web_app_demo_test', env)
+    await waitForComposePostgres(postgresTestService, 'dilife_test', env)
   }
 
   run('bun', ['run', '--cwd', 'backend', 'prisma:deploy'], env)
   run('bun', ['run', '--cwd', 'backend', 'prisma:seed'], {
     ...env,
-    DEV_SEED_ADMIN_EMAIL: e2eAdminEmail,
-    DEV_SEED_ADMIN_PASSWORD: e2eAdminPassword,
-    DEV_SEED_USER_EMAIL: 'user@example.com',
-    DEV_SEED_USER_PASSWORD: e2eAdminPassword,
+    DEV_SEED_USER_EMAIL: e2eUserEmail,
+    DEV_SEED_USER_PASSWORD: e2eUserPassword,
   })
 }

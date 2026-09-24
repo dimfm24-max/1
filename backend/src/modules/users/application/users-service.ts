@@ -1,26 +1,11 @@
-import type {
-  AdminUsersQuery,
-  UpdateProfileRequest,
-  UpdateUserRoleRequest,
-  UserDto,
-} from '@web-app-demo/contracts'
+import type { UpdateProfileRequest, UserDto } from '@dilife/contracts'
 
 import type { AuthenticatedPrincipal } from '../../auth'
-import type {
-  AdminDashboardReader,
-  AdminUsersReader,
-  Clock,
-  ProfileWriter,
-  UserRecord,
-  UserRoleUpdater,
-} from './ports'
+import type { ProfileWriter, UserRecord } from './ports'
 
 type UsersServiceDependencies = {
-  adminDashboardReader: AdminDashboardReader
-  adminUsersReader: AdminUsersReader
-  clock: Clock
   profileWriter: ProfileWriter
-  userRoleUpdater: UserRoleUpdater
+  clock?: { now(): Date }
 }
 
 export class UsersService {
@@ -36,28 +21,11 @@ export class UsersService {
     }
   }
 
-  dashboard() {
-    const createdAfter = new Date(this.dependencies.clock.now().getTime() - 7 * 24 * 60 * 60 * 1000)
-    return this.dependencies.adminDashboardReader.dashboard(createdAfter)
-  }
-
-  listUsers(query: AdminUsersQuery) {
-    return this.dependencies.adminUsersReader.listUsers(query)
-  }
-
-  async updateRole(
-    principal: AuthenticatedPrincipal,
-    targetUserId: string,
-    input: UpdateUserRoleRequest,
-  ) {
-    return {
-      user: await this.dependencies.userRoleUpdater.updateRole({
-        actorUserId: principal.id,
-        targetUserId,
-        role: input.role,
-        now: this.dependencies.clock.now(),
-      }),
-    }
+  /** The first-run wizard is done: from now on /app opens as usual (task 07). */
+  async completeOnboarding(principal: AuthenticatedPrincipal) {
+    const now = this.dependencies.clock?.now() ?? new Date()
+    const user = await this.dependencies.profileWriter.completeOnboarding(principal.id, now)
+    return { user: this.userDto(user) }
   }
 
   private userDto(user: UserRecord): UserDto {
@@ -65,8 +33,9 @@ export class UsersService {
       id: user.id,
       email: user.email,
       displayName: user.displayName,
-      role: user.role,
       createdAt: user.createdAt.toISOString(),
+      emailVerified: user.emailVerifiedAt !== null,
+      onboardingCompleted: user.onboardingCompletedAt !== null,
     }
   }
 }
